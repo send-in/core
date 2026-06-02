@@ -15,8 +15,20 @@ type CreateConnectionsRequest struct {
 	IDs []string `json:"ids" binding:"required"`
 }
 
+// GetConnections godoc
+//
+//	@Summary		Get connections
+//	@Description	Get all connections belonging to the authenticated account
+//	@Tags			connections
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Success		200	{array}		model.Connection
+//	@Failure		401	{object}	map[string]interface{}
+//	@Failure		500	{object}	map[string]interface{}
+//	@Router			/connections [get]
 func (c *Controller) GetConnections(context *gin.Context) {
 	account := middleware.Account(context)
+
 	var connections []model.Connection
 
 	if err := c.db.
@@ -43,6 +55,20 @@ func (c *Controller) GetConnections(context *gin.Context) {
 	)
 }
 
+// CreateConnections godoc
+//
+//	@Summary		Create connections
+//	@Description	Create or retrieve connections from a list of LinkedIn public IDs
+//	@Tags			connections
+//	@Accept			json
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Param			body	body		CreateConnectionsRequest	true	"Connection IDs"
+//	@Success		200		{array}		model.Connection
+//	@Failure		400		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]interface{}
+//	@Failure		500		{object}	map[string]interface{}
+//	@Router			/connections [post]
 func (c *Controller) CreateConnections(context *gin.Context) {
 	account := middleware.Account(context)
 

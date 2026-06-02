@@ -22,7 +22,7 @@ func Init(cfg *config.DatabaseConfig) *gorm.DB {
 
 	logger.Info("🚚 Running migrations")
 
-	err = Migrate(db)
+	err = Migrate(cfg)
 	logger.Fatal(err, "Failed to migrate database")
 
 	return db

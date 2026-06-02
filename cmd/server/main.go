@@ -12,6 +12,14 @@ import (
 	"github.com/ory/graceful"
 )
 
+// @title SendIn API
+// @version 1.0
+// @description LinkedIn outreach automation API
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey CookieAuth
+// @in cookie
+// @name sendin_auth
 func main() {
 	logger.Start()
 
@@ -35,7 +43,7 @@ func main() {
 		},
 	)
 
-	err = database.Migrate(gormDB)
+	err = database.Migrate(&cfg.Database)
 	logger.Fatal(err, "Failed to create migrations")
 
 	logger.Info("🚀 Starting server on port %s", cfg.Server.Port)

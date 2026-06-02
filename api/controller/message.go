@@ -1,12 +1,12 @@
 package controller
 
 import (
+	"errors"
+	"net/http"
+
 	middleware "core/api/middleware"
 	model "core/internal/model"
 	logger "core/pkg/log"
-
-	"errors"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -14,16 +14,27 @@ import (
 )
 
 type CreateMessageRequest struct {
-	Name          string      `json:"name" binding:"required"`
-	Picture       string      `json:"picture"`
-	Profile       string      `json:"profile" binding:"required"`
-	Company       string      `json:"company"`
-	Timezone      string      `json:"timezone"`
-	Message       *string     `json:"message"`
-	TemplateID    *uuid.UUID  `json:"templateId"`
-	ScheduleTime  string      `json:"scheduleTime"`
+	Name         string     `json:"name" binding:"required"`
+	Picture      string     `json:"picture"`
+	Profile      string     `json:"profile" binding:"required"`
+	Company      string     `json:"company"`
+	Timezone     string     `json:"timezone"`
+	Message      *string    `json:"message"`
+	TemplateID   *uuid.UUID `json:"templateId"`
+	ScheduleTime string     `json:"scheduleTime"`
 }
 
+// GetMessages godoc
+//
+//	@Summary		Get messages
+//	@Description	Get all messages belonging to the authenticated account
+//	@Tags			messages
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Success		200	{array}		model.Message
+//	@Failure		401	{object}	map[string]interface{}
+//	@Failure		500	{object}	map[string]interface{}
+//	@Router			/messages [get]
 func (c *Controller) GetMessages(context *gin.Context) {
 	account := middleware.Account(context)
 
@@ -38,7 +49,9 @@ func (c *Controller) GetMessages(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{"error": "Failed to find messages"},
+			gin.H{
+				"error": "Failed to find messages",
+			},
 		)
 		return
 	}
@@ -52,6 +65,19 @@ func (c *Controller) GetMessages(context *gin.Context) {
 	)
 }
 
+// GetMessage godoc
+//
+//	@Summary		Get message
+//	@Description	Get a single message belonging to the authenticated account
+//	@Tags			messages
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Param			id	path		string	true	"Message ID"
+//	@Success		200	{object}	model.Message
+//	@Failure		401	{object}	map[string]interface{}
+//	@Failure		404	{object}	map[string]interface{}
+//	@Failure		500	{object}	map[string]interface{}
+//	@Router			/messages/{id} [get]
 func (c *Controller) GetMessage(context *gin.Context) {
 	account := middleware.Account(context)
 	id := context.Param("id")
@@ -70,7 +96,9 @@ func (c *Controller) GetMessage(context *gin.Context) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			context.JSON(
 				http.StatusNotFound,
-				gin.H{"error": "Message not found"},
+				gin.H{
+					"error": "Message not found",
+				},
 			)
 			return
 		}
@@ -79,19 +107,38 @@ func (c *Controller) GetMessage(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{"error": "Failed to find message"},
+			gin.H{
+				"error": "Failed to find message",
+			},
 		)
 		return
 	}
 
 	context.JSON(
 		http.StatusOK,
-		gin.H{"data": message},
+		gin.H{
+			"data": message,
+		},
 	)
 }
 
+// CreateMessage godoc
+//
+//	@Summary		Create message
+//	@Description	Create a new message for the authenticated account
+//	@Tags			messages
+//	@Accept			json
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Param			body	body		CreateMessageRequest	true	"Message payload"
+//	@Success		201		{object}	model.Message
+//	@Failure		400		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]interface{}
+//	@Failure		500		{object}	map[string]interface{}
+//	@Router			/messages [post]
 func (c *Controller) CreateMessage(context *gin.Context) {
 	account := middleware.Account(context)
+
 	var request CreateMessageRequest
 
 	if err := context.ShouldBindJSON(&request); err != nil {
@@ -115,6 +162,10 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 		AccountID: &account.ID,
 	}
 
+	if request.TemplateID != nil {
+		message.TemplateID = request.TemplateID
+	}
+
 	if err := c.db.Create(&message).Error; err != nil {
 		logger.Error("Failed to create message: %v", err)
 
@@ -136,6 +187,19 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 	)
 }
 
+// DeleteMessage godoc
+//
+//	@Summary		Delete message
+//	@Description	Delete a message belonging to the authenticated account
+//	@Tags			messages
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Param			id	path		string	true	"Message ID"
+//	@Success		200	{object}	map[string]string
+//	@Failure		401	{object}	map[string]interface{}
+//	@Failure		404	{object}	map[string]interface{}
+//	@Failure		500	{object}	map[string]interface{}
+//	@Router			/messages/{id} [delete]
 func (c *Controller) DeleteMessage(context *gin.Context) {
 	account := middleware.Account(context)
 	id := context.Param("id")
@@ -167,7 +231,6 @@ func (c *Controller) DeleteMessage(context *gin.Context) {
 				"error": "Message not found",
 			},
 		)
-
 		return
 	}
 

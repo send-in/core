@@ -45,3 +45,14 @@ func (cfg *DatabaseConfig) GetAdminDSN() string {
 		cfg.SSL,
 	)
 }
+
+func (cfg *DatabaseConfig) GetMigrationDSN() string {
+	return fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		cfg.Username,
+		cfg.Password,
+		cfg.Host,
+		cfg.Port,
+		cfg.Name,
+	)
+}

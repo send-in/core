@@ -1,0 +1,8 @@
+ALTER TABLE templates
+ALTER COLUMN account_id SET NOT NULL;
+
+ALTER TABLE connections
+ALTER COLUMN account_id SET NOT NULL;
+
+ALTER TABLE messages
+ALTER COLUMN account_id SET NOT NULL;

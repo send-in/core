@@ -25,6 +25,18 @@ type SignupRequest struct {
 	UserAgent string `json:"userAgent"`
 }
 
+// Login godoc
+//
+//	@Summary		Login
+//	@Description	Authenticate an account using email
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		LoginRequest	true	"Login payload"
+//	@Success		200		{object}	model.Account
+//	@Failure		400		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]interface{}
+//	@Router			/auth/login [post]
 func (c *Controller) Login(context *gin.Context) {
 	var request LoginRequest
 
@@ -68,6 +80,19 @@ func (c *Controller) Login(context *gin.Context) {
 	)
 }
 
+// Signup godoc
+//
+//	@Summary		Create account
+//	@Description	Create a new SendIn account
+//	@Tags			auth
+//	@Accept			json
+//	@Produce		json
+//	@Param			body	body		SignupRequest	true	"Signup payload"
+//	@Success		201		{object}	model.Account
+//	@Failure		400		{object}	map[string]interface{}
+//	@Failure		409		{object}	map[string]interface{}
+//	@Failure		500		{object}	map[string]interface{}
+//	@Router			/auth/signup [post]
 func (c *Controller) Signup(context *gin.Context) {
 	var request SignupRequest
 

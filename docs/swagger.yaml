@@ -1,0 +1,747 @@
+basePath: /api/v1
+definitions:
+  api_controller.CreateConnectionsRequest:
+    properties:
+      ids:
+        items:
+          type: string
+        type: array
+    required:
+    - ids
+    type: object
+  api_controller.CreateMessageRequest:
+    properties:
+      company:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      picture:
+        type: string
+      profile:
+        type: string
+      scheduleTime:
+        type: string
+      templateId:
+        type: string
+      timezone:
+        type: string
+    required:
+    - name
+    - profile
+    type: object
+  api_controller.CreateTemplateRequest:
+    properties:
+      label:
+        type: string
+      value:
+        type: string
+    required:
+    - label
+    - value
+    type: object
+  api_controller.LoginRequest:
+    properties:
+      email:
+        type: string
+    required:
+    - email
+    type: object
+  api_controller.SignupRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      picture:
+        type: string
+      profile:
+        type: string
+      timezone:
+        type: string
+      token:
+        type: string
+      userAgent:
+        type: string
+    required:
+    - email
+    - name
+    type: object
+  api_controller.UpdateAccountRequest:
+    properties:
+      email:
+        type: string
+      name:
+        type: string
+      picture:
+        type: string
+      profile:
+        type: string
+      timezone:
+        type: string
+      userAgent:
+        type: string
+    type: object
+  api_controller.UpdateTemplateRequest:
+    properties:
+      label:
+        type: string
+      value:
+        type: string
+    required:
+    - label
+    - value
+    type: object
+  core_internal_model.Account:
+    properties:
+      createdAt:
+        type: string
+      email:
+        type: string
+      id:
+        type: string
+      name:
+        type: string
+      picture:
+        type: string
+      profile:
+        type: string
+      timezone:
+        type: string
+      token:
+        type: string
+      updatedAt:
+        type: string
+      userAgent:
+        type: string
+    type: object
+  core_internal_model.Connection:
+    properties:
+      accountID:
+        type: string
+      bio:
+        type: string
+      company:
+        type: string
+      country:
+        type: string
+      createdAt:
+        type: string
+      firstName:
+        type: string
+      id:
+        type: string
+      lastName:
+        type: string
+      picture:
+        type: string
+      publicID:
+        type: string
+      timezone:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  core_internal_model.Message:
+    properties:
+      accountID:
+        type: string
+      company:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      isSent:
+        type: boolean
+      message:
+        type: string
+      name:
+        type: string
+      picture:
+        type: string
+      profile:
+        type: string
+      scheduleTime:
+        type: string
+      template:
+        $ref: '#/definitions/core_internal_model.Template'
+      templateID:
+        type: string
+      timezone:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  core_internal_model.Template:
+    properties:
+      accountID:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      label:
+        type: string
+      updatedAt:
+        type: string
+      value:
+        type: string
+    type: object
+info:
+  contact: {}
+  description: LinkedIn outreach automation API
+  title: SendIn API
+  version: "1.0"
+paths:
+  /account:
+    delete:
+      description: Delete the authenticated account and clear session cookie
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Delete account
+      tags:
+      - account
+    get:
+      description: Returns the authenticated account
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/core_internal_model.Account'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get current account
+      tags:
+      - account
+    put:
+      consumes:
+      - application/json
+      description: Update the authenticated account
+      parameters:
+      - description: Account payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.UpdateAccountRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/core_internal_model.Account'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update account
+      tags:
+      - account
+  /auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticate an account using email
+      parameters:
+      - description: Login payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/core_internal_model.Account'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Login
+      tags:
+      - auth
+  /auth/signup:
+    post:
+      consumes:
+      - application/json
+      description: Create a new SendIn account
+      parameters:
+      - description: Signup payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.SignupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/core_internal_model.Account'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Create account
+      tags:
+      - auth
+  /connections:
+    get:
+      description: Get all connections belonging to the authenticated account
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/core_internal_model.Connection'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get connections
+      tags:
+      - connections
+    post:
+      consumes:
+      - application/json
+      description: Create or retrieve connections from a list of LinkedIn public IDs
+      parameters:
+      - description: Connection IDs
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.CreateConnectionsRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/core_internal_model.Connection'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create connections
+      tags:
+      - connections
+  /messages:
+    get:
+      description: Get all messages belonging to the authenticated account
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/core_internal_model.Message'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get messages
+      tags:
+      - messages
+    post:
+      consumes:
+      - application/json
+      description: Create a new message for the authenticated account
+      parameters:
+      - description: Message payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.CreateMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/core_internal_model.Message'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create message
+      tags:
+      - messages
+  /messages/{id}:
+    delete:
+      description: Delete a message belonging to the authenticated account
+      parameters:
+      - description: Message ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Delete message
+      tags:
+      - messages
+    get:
+      description: Get a single message belonging to the authenticated account
+      parameters:
+      - description: Message ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/core_internal_model.Message'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get message
+      tags:
+      - messages
+  /templates:
+    get:
+      description: Get all templates belonging to the authenticated account
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/core_internal_model.Template'
+            type: array
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get templates
+      tags:
+      - templates
+    post:
+      consumes:
+      - application/json
+      description: Create a new template for the authenticated account
+      parameters:
+      - description: Template payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.CreateTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/core_internal_model.Template'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create template
+      tags:
+      - templates
+  /templates/{id}:
+    delete:
+      description: Delete a template belonging to the authenticated account
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Delete template
+      tags:
+      - templates
+    get:
+      description: Get a single template belonging to the authenticated account
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/core_internal_model.Template'
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Get template
+      tags:
+      - templates
+    put:
+      consumes:
+      - application/json
+      description: Update a template belonging to the authenticated account
+      parameters:
+      - description: Template ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Template payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.UpdateTemplateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/core_internal_model.Template'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update template
+      tags:
+      - templates
+securityDefinitions:
+  CookieAuth:
+    in: cookie
+    name: sendin_auth
+    type: apiKey
+swagger: "2.0"

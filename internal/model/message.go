@@ -7,7 +7,7 @@ import (
 
 type Message struct {
 	ID uuid.UUID `gorm:"<-:create;type:uuid;default:gen_random_uuid();primaryKey"`
-	AccountID *uuid.UUID
+	AccountID *uuid.UUID `gorm:"not null"`
 	TemplateID *uuid.UUID
 
 	Name string

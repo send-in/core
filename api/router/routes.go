@@ -10,6 +10,10 @@ import (
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
+
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
+	_ "core/docs"
 )
 
 func Config(
@@ -17,6 +21,7 @@ func Config(
 	cfg *config.ServerConfig,
 ) http.Handler {
 	router := gin.Default()
+
 	controllers := controller.Create(db)
 
 	router.Use(cors.New(
@@ -28,10 +33,17 @@ func Config(
 				"PUT",
 				"DELETE",
 			},
-			AllowHeaders: []string{"*"},
+			AllowHeaders:     []string{"*"},
 			AllowCredentials: true,
 		},
 	))
+
+	router.GET(
+		"/swagger/*any",
+		ginSwagger.WrapHandler(
+			swaggerFiles.Handler,
+		),
+	)
 
 	v1 := router.Group("/api/v1")
 
@@ -72,7 +84,14 @@ func Config(
 		protected.GET("/messages", controllers.GetMessages)
 		protected.GET("/messages/:id", controllers.GetMessage)
 		protected.POST("/messages", controllers.CreateMessage)
-		protected.DELETE("/messages/:id", controllers.DeleteMessage,)
+		protected.DELETE("/messages/:id", controllers.DeleteMessage)
+
+		// Templates
+		protected.GET("/templates", controllers.GetTemplates)
+		protected.GET("/templates/:id", controllers.GetTemplate)
+		protected.POST("/templates", controllers.CreateTemplate)
+		protected.PUT("/templates/:id", controllers.UpdateTemplate)
+		protected.DELETE("/templates/:id", controllers.DeleteTemplate)
 	}
 
 	return router

@@ -19,6 +19,16 @@ type UpdateAccountRequest struct {
 	UserAgent string `json:"userAgent"`
 }
 
+// GetAccount godoc
+//
+//	@Summary		Get current account
+//	@Description	Returns the authenticated account
+//	@Tags			account
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Success		200	{object}	model.Account
+//	@Failure		401	{object}	map[string]interface{}
+//	@Router			/account [get]
 func (c *Controller) GetAccount(context *gin.Context) {
 	account := middleware.Account(context)
 
@@ -30,8 +40,23 @@ func (c *Controller) GetAccount(context *gin.Context) {
 	)
 }
 
+// UpdateAccount godoc
+//
+//	@Summary		Update account
+//	@Description	Update the authenticated account
+//	@Tags			account
+//	@Accept			json
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Param			body	body		UpdateAccountRequest	true	"Account payload"
+//	@Success		200		{object}	model.Account
+//	@Failure		400		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]interface{}
+//	@Failure		500		{object}	map[string]interface{}
+//	@Router			/account [put]
 func (c *Controller) UpdateAccount(context *gin.Context) {
 	account := middleware.Account(context)
+
 	var request UpdateAccountRequest
 
 	if err := context.ShouldBindJSON(&request); err != nil {
@@ -65,12 +90,23 @@ func (c *Controller) UpdateAccount(context *gin.Context) {
 
 	context.JSON(
 		http.StatusOK,
-		gin.H{ 
+		gin.H{
 			"data": account,
 		},
 	)
 }
 
+// DeleteAccount godoc
+//
+//	@Summary		Delete account
+//	@Description	Delete the authenticated account and clear session cookie
+//	@Tags			account
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Success		200	{object}	map[string]string
+//	@Failure		401	{object}	map[string]interface{}
+//	@Failure		500	{object}	map[string]interface{}
+//	@Router			/account [delete]
 func (c *Controller) DeleteAccount(context *gin.Context) {
 	account := middleware.Account(context)
 
@@ -84,7 +120,7 @@ func (c *Controller) DeleteAccount(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{ 
+			gin.H{
 				"error": "Failed to delete account",
 			},
 		)
