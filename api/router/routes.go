@@ -78,7 +78,6 @@ func Config(
 
 		// Connections
 		protected.GET("/connections", controllers.GetConnections)
-		protected.POST("/connections", controllers.CreateConnections)
 
 		// Messages
 		protected.GET("/messages", controllers.GetMessages)

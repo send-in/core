@@ -1,14 +1,5 @@
 basePath: /api/v1
 definitions:
-  api_controller.CreateConnectionsRequest:
-    properties:
-      ids:
-        items:
-          type: string
-        type: array
-    required:
-    - ids
-    type: object
   api_controller.CreateMessageRequest:
     properties:
       company:
@@ -83,6 +74,28 @@ definitions:
       userAgent:
         type: string
     type: object
+  api_controller.UpdateMessageRequest:
+    properties:
+      company:
+        type: string
+      message:
+        type: string
+      name:
+        type: string
+      picture:
+        type: string
+      profile:
+        type: string
+      scheduleTime:
+        type: string
+      templateId:
+        type: string
+      timezone:
+        type: string
+    required:
+    - name
+    - profile
+    type: object
   api_controller.UpdateTemplateRequest:
     properties:
       label:
@@ -114,33 +127,6 @@ definitions:
       updatedAt:
         type: string
       userAgent:
-        type: string
-    type: object
-  core_internal_model.Connection:
-    properties:
-      accountID:
-        type: string
-      bio:
-        type: string
-      company:
-        type: string
-      country:
-        type: string
-      createdAt:
-        type: string
-      firstName:
-        type: string
-      id:
-        type: string
-      lastName:
-        type: string
-      picture:
-        type: string
-      publicID:
-        type: string
-      timezone:
-        type: string
-      updatedAt:
         type: string
     type: object
   core_internal_model.Message:
@@ -351,15 +337,41 @@ paths:
   /connections:
     get:
       description: Get all connections belonging to the authenticated account
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - default: recents
+        description: recents|a-z|z-a
+        in: query
+        name: sort
+        type: string
+      - description: Search by name, company, bio or public id
+        in: query
+        name: q
+        type: string
+      - collectionFormat: csv
+        description: Filter by public ids
+        in: query
+        items:
+          type: string
+        name: ids
+        type: array
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/core_internal_model.Connection'
-            type: array
+            additionalProperties: true
+            type: object
         "401":
           description: Unauthorized
           schema:
@@ -375,58 +387,37 @@ paths:
       summary: Get connections
       tags:
       - connections
-    post:
-      consumes:
-      - application/json
-      description: Create or retrieve connections from a list of LinkedIn public IDs
-      parameters:
-      - description: Connection IDs
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/api_controller.CreateConnectionsRequest'
-      produces:
-      - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            items:
-              $ref: '#/definitions/core_internal_model.Connection'
-            type: array
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties: true
-            type: object
-        "500":
-          description: Internal Server Error
-          schema:
-            additionalProperties: true
-            type: object
-      security:
-      - CookieAuth: []
-      summary: Create connections
-      tags:
-      - connections
   /messages:
     get:
-      description: Get all messages belonging to the authenticated account
+      description: Get paginated messages belonging to the authenticated account
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - default: recents
+        description: recents|a-z|z-a
+        in: query
+        name: sort
+        type: string
+      - description: Search by name or company
+        in: query
+        name: q
+        type: string
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/core_internal_model.Message'
-            type: array
+            additionalProperties: true
+            type: object
         "401":
           description: Unauthorized
           schema:
@@ -553,9 +544,68 @@ paths:
       summary: Get message
       tags:
       - messages
+    put:
+      consumes:
+      - application/json
+      description: Update a message belonging to the authenticated account
+      parameters:
+      - description: Message ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Message payload
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.UpdateMessageRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/core_internal_model.Message'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Update message
+      tags:
+      - messages
   /templates:
     get:
-      description: Get all templates belonging to the authenticated account
+      description: Get paginated templates belonging to the authenticated account
+      parameters:
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 20
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      - default: recents
+        description: recents|a-z|z-a
+        in: query
+        name: sort
+        type: string
       produces:
       - application/json
       responses:

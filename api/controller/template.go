@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	middleware "core/api/middleware"
 	model "core/internal/model"
@@ -25,24 +26,73 @@ type UpdateTemplateRequest struct {
 // GetTemplates godoc
 //
 //	@Summary		Get templates
-//	@Description	Get all templates belonging to the authenticated account
+//	@Description	Get paginated templates belonging to the authenticated account
 //	@Tags			templates
 //	@Produce		json
 //	@Security		CookieAuth
-//	@Success		200	{array}		model.Template
-//	@Failure		401	{object}	map[string]interface{}
-//	@Failure		500	{object}	map[string]interface{}
+//	@Param			page	query		int		false	"Page number"	default(1)
+//	@Param			limit	query		int		false	"Items per page"	default(20)
+//	@Param			sort	query		string	false	"recents|a-z|z-a"	default(recents)
+//	@Success		200		{array}		model.Template
+//	@Failure		401		{object}	map[string]interface{}
+//	@Failure		500		{object}	map[string]interface{}
 //	@Router			/templates [get]
 func (c *Controller) GetTemplates(context *gin.Context) {
+	
 	account := middleware.Account(context)
+	page, _ := strconv.Atoi(context.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(context.DefaultQuery("limit", "20"))
+	sort := context.DefaultQuery("sort","recents")
+
+	if page < 1 { page = 1 }
+	if limit < 1 { limit = 20 }
+	if limit > 100 { limit = 100 }
+
+	order := "created_at DESC"
+	switch sort {
+		case "a-z":
+			order = "label ASC"
+		case "z-a":
+			order = "label DESC"
+		case "recents":
+			order = "created_at DESC"
+	}
+
+	var count int64
+
+	if err := c.db.
+		Model(&model.Template{}).
+		Where("account_id = ?", account.ID).
+		Count(&count).Error; err != nil {
+
+		logger.Error(
+			"Failed to count templates: %v",
+			err,
+		)
+
+		context.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error": "Failed to count templates",
+			},
+		)
+
+		return
+	}
 
 	var templates []model.Template
 
 	if err := c.db.
 		Where("account_id = ?", account.ID).
+		Order(order).
+		Limit(limit).
+		Offset((page - 1) * limit).
 		Find(&templates).Error; err != nil {
 
-		logger.Error("Failed to find templates: %v", err)
+		logger.Error(
+			"Failed to find templates: %v",
+			err,
+		)
 
 		context.JSON(
 			http.StatusInternalServerError,
@@ -50,14 +100,17 @@ func (c *Controller) GetTemplates(context *gin.Context) {
 				"error": "Failed to find templates",
 			},
 		)
+
 		return
 	}
 
 	context.JSON(
 		http.StatusOK,
 		gin.H{
-			"count": len(templates),
-			"data":  templates,
+			"count": count,
+			"page": page,
+			"limit": limit,
+			"data": templates,
 		},
 	)
 }

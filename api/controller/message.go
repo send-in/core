@@ -3,6 +3,8 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"strconv"
+	"time"
 
 	middleware "core/api/middleware"
 	model "core/internal/model"
@@ -24,25 +26,89 @@ type CreateMessageRequest struct {
 	ScheduleTime string     `json:"scheduleTime"`
 }
 
+type UpdateMessageRequest struct {
+	Name         string     `json:"name" binding:"required"`
+	Picture      string     `json:"picture"`
+	Profile      string     `json:"profile" binding:"required"`
+	Company      string     `json:"company"`
+	Timezone     string     `json:"timezone"`
+	Message      *string    `json:"message"`
+	TemplateID   *uuid.UUID `json:"templateId"`
+	ScheduleTime string     `json:"scheduleTime"`
+}
+
 // GetMessages godoc
 //
 //	@Summary		Get messages
-//	@Description	Get all messages belonging to the authenticated account
+//	@Description	Get paginated messages belonging to the authenticated account
 //	@Tags			messages
 //	@Produce		json
 //	@Security		CookieAuth
-//	@Success		200	{array}		model.Message
-//	@Failure		401	{object}	map[string]interface{}
-//	@Failure		500	{object}	map[string]interface{}
+//	@Param			page	query		int		false	"Page number"	default(1)
+//	@Param			limit	query		int		false	"Items per page"	default(20)
+//	@Param			sort	query		string	false	"recents|a-z|z-a"	default(recents)
+//	@Param			q		query		string	false	"Search by name or company"
+//	@Success		200		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]interface{}
+//	@Failure		500		{object}	map[string]interface{}
 //	@Router			/messages [get]
 func (c *Controller) GetMessages(context *gin.Context) {
 	account := middleware.Account(context)
 
+	page, _ := strconv.Atoi(context.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(context.DefaultQuery("limit", "20"))
+	sort := context.DefaultQuery("sort","recents")
+	q := context.DefaultQuery("q", "")
+
+	if page < 1 { page = 1 }
+	if limit < 1 { limit = 20 }
+	if limit > 100 { limit = 100 }
+
+	order := "created_at DESC"
+	switch sort {
+		case "a-z":
+			order = "name ASC"
+		case "z-a":
+			order = "name DESC"
+		case "recents":
+			order = "created_at DESC"
+	}
+
+	query := c.db.
+		Model(&model.Message{}).
+		Preload("Template").
+		Where("account_id = ?", account.ID)
+
+	if q != "" {
+		query = query.Where(
+			"name ILIKE ? OR company ILIKE ?",
+			"%"+q+"%",
+			"%"+q+"%",
+		)
+	}
+
+	var count int64
+	if err := query.
+		Count(&count).Error;  err != nil {
+		logger.Error(
+			"Failed to count messages: %v",
+			err,
+		)
+
+		context.JSON(
+			http.StatusInternalServerError,
+			gin.H{ "error": "Failed to count messages" },
+		)
+
+		return
+	}
+
 	var messages []model.Message
 
-	if err := c.db.
-		Preload("Template").
-		Where("account_id = ?", account.ID).
+	if err := query.
+		Order(order).
+		Limit(limit).
+		Offset((page - 1) * limit).
 		Find(&messages).Error; err != nil {
 
 		logger.Error("Failed to find messages: %v", err)
@@ -59,8 +125,10 @@ func (c *Controller) GetMessages(context *gin.Context) {
 	context.JSON(
 		http.StatusOK,
 		gin.H{
-			"count": len(messages),
-			"data":  messages,
+			"count": count,
+			"page": page,
+			"limit": limit,
+			"data": messages,
 		},
 	)
 }
@@ -151,6 +219,22 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 		return
 	}
 
+	scheduleTime, err := time.Parse(
+		time.RFC3339,
+		request.ScheduleTime,
+	)
+
+	if err != nil {
+		context.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "Invalid scheduleTime format. Expected RFC3339.",
+			},
+		)
+		return
+	}
+
+
 	message := model.Message{
 		Name:      request.Name,
 		IsSent:    false,
@@ -160,6 +244,7 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 		Message:   request.Message,
 		Timezone:  request.Timezone,
 		AccountID: &account.ID,
+		ScheduleTime: scheduleTime,
 	}
 
 	if request.TemplateID != nil {
@@ -178,11 +263,114 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 		return
 	}
 
+	// TODO:
+	// Publish scheduled message to cron / queue service.
+
 	context.JSON(
 		http.StatusCreated,
 		gin.H{
 			"message": "Message created",
 			"data":    message,
+		},
+	)
+}
+
+// UpdateMessage godoc
+//
+//	@Summary		Update message
+//	@Description	Update a message belonging to the authenticated account
+//	@Tags			messages
+//	@Accept			json
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Param			id		path		string					true	"Message ID"
+//	@Param			body	body		UpdateMessageRequest	true	"Message payload"
+//	@Success		200		{object}	model.Message
+//	@Failure		400		{object}	map[string]interface{}
+//	@Failure		404		{object}	map[string]interface{}
+//	@Failure		500		{object}	map[string]interface{}
+//	@Router			/messages/{id} [put]
+func (c *Controller) UpdateMessage(context *gin.Context) {
+	account := middleware.Account(context)
+	id := context.Param("id")
+
+	var request UpdateMessageRequest
+
+	if err := context.ShouldBindJSON(&request); err != nil {
+		context.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+		return
+	}
+
+	var message model.Message
+
+	if err := c.db.
+		Where(
+			"id = ? AND account_id = ?",
+			id,
+			account.ID,
+		).
+		First(&message).Error; err != nil {
+
+		context.JSON(
+			http.StatusNotFound,
+			gin.H{
+				"error": "Message not found",
+			},
+		)
+		return
+	}
+
+	scheduleTime, err := time.Parse(
+		time.RFC3339,
+		request.ScheduleTime,
+	)
+
+	if err != nil {
+		context.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "Invalid scheduleTime format. Expected RFC3339.",
+			},
+		)
+		return
+	}
+
+	message.Name = request.Name
+	message.Picture = request.Picture
+	message.Profile = request.Profile
+	message.Company = request.Company
+	message.Timezone = request.Timezone
+	message.Message = request.Message
+	message.ScheduleTime = scheduleTime
+
+	if request.TemplateID != nil {
+		message.TemplateID = request.TemplateID
+	}
+
+	if err := c.db.Save(&message).Error; err != nil {
+		logger.Error("Failed to update message: %v", err)
+
+		context.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error": "Failed to update message",
+			},
+		)
+		return
+	}
+
+	// TODO:
+	// Reschedule message in cron / queue service.
+
+	context.JSON(
+		http.StatusOK,
+		gin.H{
+			"data": message,
 		},
 	)
 }

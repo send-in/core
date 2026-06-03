@@ -4,16 +4,12 @@ import (
 	"core/api/middleware"
 	model "core/internal/model"
 	logger "core/pkg/log"
+	"strconv"
 
 	"net/http"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 )
-
-type CreateConnectionsRequest struct {
-	IDs []string `json:"ids" binding:"required"`
-}
 
 // GetConnections godoc
 //
@@ -22,17 +18,83 @@ type CreateConnectionsRequest struct {
 //	@Tags			connections
 //	@Produce		json
 //	@Security		CookieAuth
-//	@Success		200	{array}		model.Connection
+//	@Param			page	query		int		false	"Page number"	default(1)
+//	@Param			limit	query		int		false	"Items per page"	default(20)
+//	@Param			sort	query		string	false	"recents|a-z|z-a"	default(recents)
+//	@Param			q		query		string	false	"Search by name, company, bio or public id"
+//	@Param			ids		query		[]string	false	"Filter by public ids"
+//	@Success		200	{object}	map[string]interface{}
 //	@Failure		401	{object}	map[string]interface{}
 //	@Failure		500	{object}	map[string]interface{}
 //	@Router			/connections [get]
 func (c *Controller) GetConnections(context *gin.Context) {
 	account := middleware.Account(context)
+	page, _ := strconv.Atoi(context.DefaultQuery("page", "1"))
+	limit, _ := strconv.Atoi(context.DefaultQuery("limit", "20"))
+	sort := context.DefaultQuery("sort","recents")
+	ids := context.QueryArray("ids")
+	q := context.DefaultQuery("q", "")
+
+	if page < 1 { page = 1 }
+	if limit < 1 { limit = 20 }
+	if limit > 100 { limit = 100 }
+
+	order := "created_at DESC"
+	switch sort {
+		case "a-z":
+			order = "first_name ASC, last_name ASC"
+		case "z-a":
+			order = "first_name DESC, last_name DESC"
+		case "recents":
+			order = "created_at DESC"
+	}
+
+	query := c.db.
+		Model(&model.Connection{}).
+		Where("account_id = ?", account.ID)
+
+	if q != "" {
+		query = query.Where(
+			`public_id ILIKE ?
+			OR first_name ILIKE ?
+			OR last_name ILIKE ?
+			OR company ILIKE ?
+			OR bio ILIKE ?`,
+			"%"+q+"%",
+			"%"+q+"%",
+			"%"+q+"%",
+			"%"+q+"%",
+			"%"+q+"%",
+		)
+	}
+
+	if len(ids) > 0 {
+		query = query.
+			Where("public_id IN ?", ids)
+	}
+
+	var count int64
+	if err := query.
+		Count(&count).Error;  err != nil {
+		logger.Error(
+			"Failed to count connections: %v",
+			err,
+		)
+
+		context.JSON(
+			http.StatusInternalServerError,
+			gin.H{ "error": "Failed to count connections" },
+		)
+
+		return
+	}
 
 	var connections []model.Connection
 
-	if err := c.db.
-		Where("account_id = ?", account.ID).
+	if err := query.
+		Order(order).
+		Limit(limit).
+		Offset((page - 1) * limit).
 		Find(&connections).Error; err != nil {
 
 		logger.Error("Failed to find connections: %v", err)
@@ -49,88 +111,10 @@ func (c *Controller) GetConnections(context *gin.Context) {
 	context.JSON(
 		http.StatusOK,
 		gin.H{
-			"count": len(connections),
-			"data":  connections,
-		},
-	)
-}
-
-// CreateConnections godoc
-//
-//	@Summary		Create connections
-//	@Description	Create or retrieve connections from a list of LinkedIn public IDs
-//	@Tags			connections
-//	@Accept			json
-//	@Produce		json
-//	@Security		CookieAuth
-//	@Param			body	body		CreateConnectionsRequest	true	"Connection IDs"
-//	@Success		200		{array}		model.Connection
-//	@Failure		400		{object}	map[string]interface{}
-//	@Failure		401		{object}	map[string]interface{}
-//	@Failure		500		{object}	map[string]interface{}
-//	@Router			/connections [post]
-func (c *Controller) CreateConnections(context *gin.Context) {
-	account := middleware.Account(context)
-
-	var request CreateConnectionsRequest
-
-	if err := context.ShouldBindJSON(&request); err != nil {
-		context.JSON(
-			http.StatusBadRequest,
-			gin.H{
-				"error": err.Error(),
-			},
-		)
-		return
-	}
-
-	var connections []model.Connection
-
-	for _, publicID := range request.IDs {
-		publicID = strings.TrimSpace(publicID)
-
-		if publicID == "" {
-			continue
-		}
-
-		var connection model.Connection
-
-		err := c.db.
-			Where(
-				"account_id = ? AND public_id = ?",
-				account.ID,
-				publicID,
-			).
-			First(&connection).
-			Error
-
-		if err == nil {
-			connections = append(connections, connection)
-			continue
-		}
-
-		connection = model.Connection{
-			AccountID: &account.ID,
-			PublicID:  publicID,
-		}
-
-		if err := c.db.Create(&connection).Error; err != nil {
-			logger.Error(
-				"Failed to create connection %s: %v",
-				publicID,
-				err,
-			)
-			continue
-		}
-
-		connections = append(connections, connection)
-	}
-
-	context.JSON(
-		http.StatusOK,
-		gin.H{
-			"message": "Connections created successfully",
-			"data":    connections,
+			"count": count,
+			"page": page,
+			"limit": limit,
+			"data": connections,
 		},
 	)
 }
