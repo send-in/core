@@ -1,11 +1,12 @@
 package main
 
 import (
-	logger "core/pkg/log"
 	router "core/api/router"
-	scheduler "core/pkg/schedule"
 	config "core/internal/config"
 	database "core/internal/database"
+	"core/internal/service"
+	logger "core/pkg/log"
+	scheduler "core/pkg/schedule"
 
 	"net/http"
 	"time"
@@ -47,8 +48,11 @@ func main() {
 	err = database.Migrate(&cfg.Database)
 	logger.Fatal(err, "Failed to create migrations")
 
-	logger.Info("⏰ Scheduler started (polling every 1 min)")
+	logger.Info("⏰ Scheduler started")
 	go scheduler.Start(gormDB)
+
+	logger.Info("🔎 LinkedIn service started")
+	go service.LinkedinService(gormDB)
 
 	logger.Info("🚀 Starting server on port %s", cfg.Server.Port)
 	err = graceful.Graceful(

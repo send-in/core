@@ -69,12 +69,31 @@ func (c *Controller) UpdateAccount(context *gin.Context) {
 		return
 	}
 
-	account.Name = request.Name
-	account.Email = request.Email
-	account.Profile = request.Profile
-	account.Picture = request.Picture
-	account.Timezone = request.Timezone
-	account.UserAgent = request.UserAgent
+	
+	if request.Name != "" {
+		account.Name = request.Name
+	}
+
+	if request.Email != "" {
+		account.Email = request.Email
+	}
+
+	if request.Profile != "" {
+		account.Profile = request.Profile
+	}
+
+	if request.Picture != "" {
+		account.Picture = request.Picture
+	}
+
+	if request.Timezone != "" {
+		account.Timezone = request.Timezone
+	}
+
+	if request.UserAgent != "" {
+		account.UserAgent = request.UserAgent
+	}
+
 
 	if err := c.db.Save(&account).Error; err != nil {
 		logger.Error("Failed to update account: %v", err)

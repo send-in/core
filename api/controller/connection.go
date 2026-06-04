@@ -1,8 +1,9 @@
 package controller
 
 import (
-	"core/api/middleware"
+	middleware "core/api/middleware"
 	model "core/internal/model"
+	service "core/internal/service"
 	logger "core/pkg/log"
 	"strconv"
 
@@ -111,10 +112,40 @@ func (c *Controller) GetConnections(context *gin.Context) {
 	context.JSON(
 		http.StatusOK,
 		gin.H{
-			"count": count,
+			"total": count,
 			"page": page,
 			"limit": limit,
 			"data": connections,
+		},
+	)
+}
+
+// EnrichConnections godoc
+//
+//	@Summary		Enrich LinkedIn connections
+//	@Description	Queues a background job to scrape and sync LinkedIn connections for the authenticated account
+//	@Tags			connections
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Success		202	{object}	map[string]interface{}
+//	@Failure		401	{object}	map[string]interface{}
+//	@Router			/connections    [post]
+func (c *Controller) EnrichConnections(
+	context *gin.Context,
+) {
+	account := middleware.Account(context)
+	service.EnrichmentJobs <- service.EnrichmentRequest{
+		Profile:  account.Profile,
+		Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
+		Token: "AQEDATOdT50EsmOqAAABnnSKrvAAAAGemJcy8FYAIOEMH6MoHcItN3Qbuqsl4bHsMs-ikkDtcb4YxiGUSslGsV-KNEwBSohR2wrttoKfHyd0q5WcTr1YDd2zkg-e2EAX02Oq08xDDRW18MMJ7NYIWhuh",
+		AccountID: account.ID,
+		JSession: "ajax:4580714983183004179",
+	}
+
+	context.JSON(
+		http.StatusAccepted,
+		gin.H{
+			"message": "Enrichment jobs queued",
 		},
 	)
 }

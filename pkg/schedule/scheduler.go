@@ -12,6 +12,9 @@ func Start(db *gorm.DB) {
 	ticker := time.NewTicker(10 * time.Second)
 	defer ticker.Stop()
 
+	jobs := make(chan model.Message, 100)
+	go Worker(jobs)
+
 	for {
 		<-ticker.C
 		var messages []model.Message
@@ -32,7 +35,7 @@ func Start(db *gorm.DB) {
 		}
 
 		for _, message := range messages {
-			Worker(message)
+			jobs <- message
 		}
 	}
 }

@@ -125,7 +125,7 @@ func (c *Controller) GetMessages(context *gin.Context) {
 	context.JSON(
 		http.StatusOK,
 		gin.H{
-			"count": count,
+			"total": count,
 			"page": page,
 			"limit": limit,
 			"data": messages,

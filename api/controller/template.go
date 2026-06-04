@@ -107,7 +107,7 @@ func (c *Controller) GetTemplates(context *gin.Context) {
 	context.JSON(
 		http.StatusOK,
 		gin.H{
-			"count": count,
+			"total": count,
 			"page": page,
 			"limit": limit,
 			"data": templates,
