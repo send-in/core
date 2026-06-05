@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"math"
 	"net/http"
 	"strconv"
 
@@ -107,7 +108,10 @@ func (c *Controller) GetTemplates(context *gin.Context) {
 	context.JSON(
 		http.StatusOK,
 		gin.H{
-			"total": count,
+			"total": int(math.Ceil(
+				float64(count) / float64(limit),
+			)),
+			"count": count,
 			"page": page,
 			"limit": limit,
 			"data": templates,

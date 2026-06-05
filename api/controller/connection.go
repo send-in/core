@@ -5,6 +5,7 @@ import (
 	model "core/internal/model"
 	service "core/internal/service"
 	logger "core/pkg/log"
+	"math"
 	"strconv"
 
 	"net/http"
@@ -112,7 +113,10 @@ func (c *Controller) GetConnections(context *gin.Context) {
 	context.JSON(
 		http.StatusOK,
 		gin.H{
-			"total": count,
+			"total": int(math.Ceil(
+				float64(count) / float64(limit),
+			)),
+			"count": count,
 			"page": page,
 			"limit": limit,
 			"data": connections,
