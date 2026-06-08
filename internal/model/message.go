@@ -15,7 +15,7 @@ type Message struct {
 	Company string
 	Timezone string
 	Message *string
-	Template Template
+	Template *Template
 	ScheduleTime time.Time
 	IsSent bool
 	CreatedAt time.Time

@@ -28,10 +28,6 @@ type CreateMessageRequest struct {
 }
 
 type UpdateMessageRequest struct {
-	Name         string     `json:"name" binding:"required"`
-	Picture      string     `json:"picture"`
-	Profile      string     `json:"profile" binding:"required"`
-	Company      string     `json:"company"`
 	Timezone     string     `json:"timezone"`
 	Message      *string    `json:"message"`
 	TemplateID   *uuid.UUID `json:"templateId"`
@@ -329,34 +325,40 @@ func (c *Controller) UpdateMessage(context *gin.Context) {
 		return
 	}
 
-	scheduleTime, err := time.Parse(
-		time.RFC3339,
-		request.ScheduleTime,
-	)
-
-	if err != nil {
-		context.JSON(
-			http.StatusBadRequest,
-			gin.H{
-				"error": "Invalid scheduleTime format. Expected RFC3339.",
-			},
-		)
-		return
-	}
-
-	message.Name = request.Name
-	message.Picture = request.Picture
-	message.Profile = request.Profile
-	message.Company = request.Company
-	message.Timezone = request.Timezone
-	message.Message = request.Message
-	message.ScheduleTime = scheduleTime
-
-	if request.TemplateID != nil {
+	if request.Message != nil {
+		message.Message = request.Message
+		message.TemplateID = nil
+	} else if request.TemplateID != nil {
 		message.TemplateID = request.TemplateID
+		message.Message = nil
 	}
 
-	if err := c.db.Save(&message).Error; err != nil {
+	if request.Timezone != "" {
+		message.Timezone = request.Timezone
+	}
+
+	if request.ScheduleTime != "" {
+		scheduleTime, err := time.Parse(
+			time.RFC3339,
+			request.ScheduleTime,
+		)
+
+		if err != nil {
+			context.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"error": "Invalid scheduleTime format. Expected RFC3339.",
+				},
+			)
+			return
+		}
+
+		message.ScheduleTime = scheduleTime
+	}
+
+	if 	err := c.db.Save(&message).Error; 
+		err != nil {
+			
 		logger.Error("Failed to update message: %v", err)
 
 		context.JSON(
@@ -368,8 +370,9 @@ func (c *Controller) UpdateMessage(context *gin.Context) {
 		return
 	}
 
-	// TODO:
-	// Reschedule message in cron / queue service.
+	c.db.
+		Preload("Template").
+		First(&message, message.ID)
 
 	context.JSON(
 		http.StatusOK,

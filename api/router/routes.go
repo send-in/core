@@ -84,6 +84,7 @@ func Config(
 		protected.GET("/messages", controllers.GetMessages)
 		protected.GET("/messages/:id", controllers.GetMessage)
 		protected.POST("/messages", controllers.CreateMessage)
+		protected.PUT("/messages/:id", controllers.UpdateMessage)
 		protected.DELETE("/messages/:id", controllers.DeleteMessage)
 
 		// Templates
