@@ -106,7 +106,8 @@ func (c *Controller) GetMessages(context *gin.Context) {
 		Order(order).
 		Limit(limit).
 		Offset((page - 1) * limit).
-		Find(&messages).Error; err != nil {
+		Find(&messages).Error; 
+		err != nil {
 
 		logger.Error("Failed to find messages: %v", err)
 

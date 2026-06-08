@@ -41,9 +41,11 @@ type UpdateTemplateRequest struct {
 func (c *Controller) GetTemplates(context *gin.Context) {
 	
 	account := middleware.Account(context)
+
 	page, _ := strconv.Atoi(context.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(context.DefaultQuery("limit", "20"))
 	sort := context.DefaultQuery("sort","recents")
+	q := context.DefaultQuery("q", "")
 
 	if page < 1 { page = 1 }
 	if limit < 1 { limit = 20 }
@@ -59,13 +61,22 @@ func (c *Controller) GetTemplates(context *gin.Context) {
 			order = "created_at DESC"
 	}
 
-	var count int64
-
-	if err := c.db.
+	query := c.db.
 		Model(&model.Template{}).
-		Where("account_id = ?", account.ID).
-		Count(&count).Error; err != nil {
+		Where("account_id = ?", account.ID)
 
+	if q != "" {
+		query = query.Where(
+			"label ILIKE ? OR value ILIKE ?",
+			"%"+q+"%",
+			"%"+q+"%",
+		)
+	}
+
+	var count int64
+	if err := query.
+		Count(&count).Error; 
+		err != nil {
 		logger.Error(
 			"Failed to count templates: %v",
 			err,
@@ -73,9 +84,7 @@ func (c *Controller) GetTemplates(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to count templates",
-			},
+			gin.H{ "error": "Failed to count templates" },
 		)
 
 		return
@@ -83,12 +92,12 @@ func (c *Controller) GetTemplates(context *gin.Context) {
 
 	var templates []model.Template
 
-	if err := c.db.
-		Where("account_id = ?", account.ID).
+	if err := query.
 		Order(order).
 		Limit(limit).
 		Offset((page - 1) * limit).
-		Find(&templates).Error; err != nil {
+		Find(&templates).Error;
+		err != nil {
 
 		logger.Error(
 			"Failed to find templates: %v",
