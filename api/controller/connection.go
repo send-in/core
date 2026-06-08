@@ -138,12 +138,32 @@ func (c *Controller) EnrichConnections(
 	context *gin.Context,
 ) {
 	account := middleware.Account(context)
+	if !account.CanSync() {
+		context.JSON(
+			http.StatusForbidden,
+			gin.H{
+				"error": "Sync limit reached",
+			},
+		)
+		return
+	}
+
 	service.EnrichmentJobs <- service.EnrichmentRequest{
 		Profile:  account.Profile,
 		Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
 		Token: "AQEDATOdT50EsmOqAAABnnSKrvAAAAGemJcy8FYAIOEMH6MoHcItN3Qbuqsl4bHsMs-ikkDtcb4YxiGUSslGsV-KNEwBSohR2wrttoKfHyd0q5WcTr1YDd2zkg-e2EAX02Oq08xDDRW18MMJ7NYIWhuh",
 		AccountID: account.ID,
 		JSession: "ajax:4580714983183004179",
+	}
+
+	account.DailySyncsUsed++
+	account.LifetimeSyncsUsed++
+	if  err := c.db.Save(&account).Error; 
+		err != nil {
+		logger.Error(
+			"Failed to update account sync usage: %v",
+			err,
+		)
 	}
 
 	context.JSON(

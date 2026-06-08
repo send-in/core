@@ -200,9 +200,45 @@ func (c *Controller) GetTemplate(context *gin.Context) {
 //	@Router			/templates [post]
 func (c *Controller) CreateTemplate(context *gin.Context) {
 	account := middleware.Account(context)
+	if account.IsFree() {
+		var count int64
+
+		if err := c.db.
+			Model(&model.Template{}).
+			Where(
+				"account_id = ?",
+				account.ID,
+			).
+			Count(&count).Error; err != nil {
+
+			logger.Error(
+				"Failed to count templates: %v",
+				err,
+			)
+
+			context.JSON(
+				http.StatusInternalServerError,
+				gin.H{
+					"error": "Failed to count templates",
+				},
+			)
+
+			return
+		}
+
+		if count >= 1 {
+			context.JSON(
+				http.StatusForbidden,
+				gin.H{
+					"error": "Free plan allows only 1 template",
+				},
+			)
+
+			return
+		}
+	}
 
 	var request CreateTemplateRequest
-
 	if err := context.ShouldBindJSON(&request); err != nil {
 		context.JSON(
 			http.StatusBadRequest,

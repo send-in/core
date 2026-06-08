@@ -32,6 +32,10 @@ type UpdateAccountRequest struct {
 func (c *Controller) GetAccount(context *gin.Context) {
 	account := middleware.Account(context)
 
+	account.ResetDailyLimits()
+	account.RenewCredits()
+	_ = c.db.Save(&account).Error
+
 	context.JSON(
 		http.StatusOK,
 		gin.H{

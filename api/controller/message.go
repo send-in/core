@@ -207,9 +207,17 @@ func (c *Controller) GetMessage(context *gin.Context) {
 //	@Router			/messages [post]
 func (c *Controller) CreateMessage(context *gin.Context) {
 	account := middleware.Account(context)
+	if !account.CanSchedule() {
+		context.JSON(
+			http.StatusForbidden,
+			gin.H{
+				"error": "Message limit reached",
+			},
+		)
+		return
+	}
 
 	var request CreateMessageRequest
-
 	if err := context.ShouldBindJSON(&request); err != nil {
 		context.JSON(
 			http.StatusBadRequest,
@@ -262,6 +270,16 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 			},
 		)
 		return
+	}
+
+	account.ConsumeCredit()
+	account.DailySchedulesUsed++
+	account.LifetimeMessagesUsed++
+	if err := c.db.Save(&account).Error; err != nil {
+		logger.Error(
+			"Failed to update account usage: %v",
+			err,
+		)
 	}
 
 	// TODO:
@@ -354,7 +372,28 @@ func (c *Controller) UpdateMessage(context *gin.Context) {
 			return
 		}
 
+		if !message.ScheduleTime.Equal(scheduleTime) {
+			if !account.CanSchedule() {
+				context.JSON(
+					http.StatusForbidden,
+					gin.H{
+						"error": "Message limit reached",
+					},
+				)
+				return
+			}
+		}
+
 		message.ScheduleTime = scheduleTime
+		account.ConsumeCredit()
+		account.DailySchedulesUsed++
+		account.LifetimeMessagesUsed++
+		if err := c.db.Save(&account).Error; err != nil {
+			logger.Error(
+				"Failed to update account usage: %v",
+				err,
+			)
+		}
 	}
 
 	if 	err := c.db.Save(&message).Error; 

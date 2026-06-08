@@ -137,6 +137,17 @@ func (c *Controller) Signup(context *gin.Context) {
 		Timezone:  request.Timezone,
 		Token:     request.Token,
 		UserAgent: request.UserAgent,
+		Plan:      model.Free,
+
+		PlanCredits: 	 	  5,
+		CreditsRemaining:     5,
+		DailySchedulesUsed:   0,
+		DailySyncsUsed: 	  0,
+		LifetimeSyncsUsed:	  0,
+		LifetimeMessagesUsed: 0,
+		
+		LastDailyResetAt: 	  nil,
+		CreditsRenewAt: 	  nil,
 	}
 
 	if err := c.db.Create(&account).Error; err != nil {
