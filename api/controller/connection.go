@@ -149,7 +149,7 @@ func (c *Controller) EnrichConnections(
 	service.EnrichmentJobs <- service.EnrichmentRequest{
 		Profile:  account.Profile,
 		Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-		Token: "AQEDATOdT50EsmOqAAABnnSKrvAAAAGemJcy8FYAIOEMH6MoHcItN3Qbuqsl4bHsMs-ikkDtcb4YxiGUSslGsV-KNEwBSohR2wrttoKfHyd0q5WcTr1YDd2zkg-e2EAX02Oq08xDDRW18MMJ7NYIWhuh",
+		Token: account.Token,
 		AccountID: account.ID,
 		JSession: "ajax:4580714983183004179",
 	}
