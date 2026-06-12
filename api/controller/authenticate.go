@@ -8,173 +8,168 @@ import (
 	logger "core/pkg/log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/markbates/goth/gothic"
 	"gorm.io/gorm"
 )
 
-type LoginRequest struct {
-	Email string `json:"email" binding:"required,email"`
-}
 
-type SignupRequest struct {
-	Name      string `json:"name" binding:"required"`
-	Email     string `json:"email" binding:"required,email"`
-	Profile   string `json:"profile"`
-	Picture   string `json:"picture"`
-	Timezone  string `json:"timezone"`
-	Token     string `json:"token"`
-	UserAgent string `json:"userAgent"`
-}
-
-// Login godoc
+// LinkedInLogin godoc
 //
-//	@Summary		Login
-//	@Description	Authenticate an account using email
+//	@Summary		Login with LinkedIn
+//	@Description	Redirects the user to LinkedIn OAuth authentication
 //	@Tags			auth
-//	@Accept			json
 //	@Produce		json
-//	@Param			body	body		LoginRequest	true	"Login payload"
-//	@Success		200		{object}	model.Account
-//	@Failure		400		{object}	map[string]interface{}
-//	@Failure		401		{object}	map[string]interface{}
-//	@Router			/auth/login [post]
-func (c *Controller) Login(context *gin.Context) {
-	var request LoginRequest
+//	@Success		307
+//	@Router			/auth/linkedin [get]
+func (c *Controller) LinkedInLogin(context *gin.Context) {
+	query := context.Request.URL.Query()
+	query.Set("provider", "linkedin")
+	context.Request.URL.RawQuery = query.Encode()
 
-	if err := context.ShouldBindJSON(&request); err != nil {
+	gothic.BeginAuthHandler(
+		context.Writer,
+		context.Request,
+	)
+}
+
+// LinkedInCallback godoc
+//
+//	@Summary		LinkedIn callback
+//	@Description	Handles LinkedIn OAuth callback, creates account if needed, authenticates user and sets session cookie
+//	@Tags			auth
+//	@Produce		json
+//	@Success		307
+//	@Failure		401	{object}	map[string]interface{}
+//	@Failure		500	{object}	map[string]interface{}
+//	@Router			/auth/linkedin/callback [get]
+func (c *Controller) LinkedInCallback(context *gin.Context) {
+	query := context.Request.URL.Query()
+	query.Set("provider", "linkedin")
+	context.Request.URL.RawQuery = query.Encode()
+
+	provider, err := gothic.GetProviderName(
+		context.Request,
+	)
+
+	logger.Info("provider=%s", provider)
+
+	sess, err := gothic.Store.Get(
+		context.Request,
+		"sendin_auth",
+	)
+
+	logger.Info("%+v", sess)
+	
+	user, err := gothic.CompleteUserAuth(
+		context.Writer,
+		context.Request,
+	)
+
+	if err != nil {
+		logger.Error("LinkedIn authentication failed: %v", err)
 		context.JSON(
-			http.StatusBadRequest,
-			gin.H{"error": err.Error()},
+			http.StatusUnauthorized,
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
 
 	var account model.Account
+	err = c.db.
+		Where(
+			"email = ?",
+			user.Email,
+		).
+		First(&account).
+		Error
 
-	if err := c.db.
-		Where("email = ?", request.Email).
-		First(&account).Error; err != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		account = model.Account{
+			Name: user.Name,
+			Email: user.Email,
+			Profile: user.NickName,
+			Picture: user.AvatarURL,
+			Plan: model.Free,
+			PlanCredits: 5,
+			CreditsRemaining: 5,
+			DailySchedulesUsed: 0,
+			DailySyncsUsed: 0,
+			LifetimeSyncsUsed: 0,
+			LifetimeMessagesUsed: 0,
+		}
 
+		if 	err := c.db.
+			Create(&account).
+			Error; err != nil {
+			logger.Error("Failed to create account: %v", err)
+			context.JSON(
+				http.StatusInternalServerError,
+				gin.H{ "error": err.Error() },
+			)
+			return
+		}
+	} else if err != nil {
+		logger.Error("Failed to lookup account: %v", err )
 		context.JSON(
-			http.StatusUnauthorized,
-			gin.H{"error": "Invalid credentials"},
+			http.StatusInternalServerError,
+			gin.H{ "error": err.Error() },
+		)
+
+		return
+	}
+
+	session, err := gothic.Store.Get(
+		context.Request,
+		"sendin_auth",
+	)
+
+	if err != nil {
+		context.JSON(
+			http.StatusInternalServerError,
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
 
-	context.SetCookie(
-		"sendin_auth",
-		account.ID.String(),
-		3600*24*30,
-		"/",
-		"",
-		false,
-		true,
+	session.Values["account"] = account.ID.String()
+	session.Options.MaxAge = 86400 * 30
+	if  err := session.Save(context.Request, context.Writer);  
+		err != nil {
+		context.JSON(
+			http.StatusInternalServerError,
+			gin.H{ "error": err.Error() },
+		)
+		return
+	}
+
+	context.Redirect(
+		http.StatusTemporaryRedirect,
+		"http://localhost:3000",
 	)
+}
+
+
+// Logout godoc
+//
+//	@Summary		Logout
+//	@Description	Clears the current authentication session
+//	@Tags			auth
+//	@Produce		json
+//	@Success		200	{object}	map[string]interface{}
+//	@Router			/auth/logout [post]
+func (c *Controller) Logout(context *gin.Context) {
+	session, _ := gothic.Store.Get(
+		context.Request,
+		"sendin_auth",
+	)
+
+	session.Options.MaxAge = -1
+	_ = session.Save(context.Request, context.Writer)
 
 	context.JSON(
 		http.StatusOK,
 		gin.H{
-			"message": "Login successful",
-			"data":    account,
-		},
-	)
-}
-
-// Signup godoc
-//
-//	@Summary		Create account
-//	@Description	Create a new SendIn account
-//	@Tags			auth
-//	@Accept			json
-//	@Produce		json
-//	@Param			body	body		SignupRequest	true	"Signup payload"
-//	@Success		201		{object}	model.Account
-//	@Failure		400		{object}	map[string]interface{}
-//	@Failure		409		{object}	map[string]interface{}
-//	@Failure		500		{object}	map[string]interface{}
-//	@Router			/auth/signup [post]
-func (c *Controller) Signup(context *gin.Context) {
-	var request SignupRequest
-
-	if err := context.ShouldBindJSON(&request); err != nil {
-		context.JSON(
-			http.StatusBadRequest,
-			gin.H{"error": err.Error()},
-		)
-		return
-	}
-
-	var existing model.Account
-
-	err := c.db.
-		Where("email = ?", request.Email).
-		First(&existing).
-		Error
-
-	if err == nil {
-		context.JSON(
-			http.StatusConflict,
-			gin.H{"error": "Account already exists"},
-		)
-		return
-	}
-
-	if !errors.Is(err, gorm.ErrRecordNotFound) {
-		logger.Error("Failed to check account existence: %v", err)
-
-		context.JSON(
-			http.StatusInternalServerError,
-			gin.H{"error": "Failed to create account"},
-		)
-		return
-	}
-
-	account := model.Account{
-		Name:      request.Name,
-		Email:     request.Email,
-		Profile:   request.Profile,
-		Picture:   request.Picture,
-		Timezone:  request.Timezone,
-		Token:     request.Token,
-		UserAgent: request.UserAgent,
-		Plan:      model.Free,
-
-		PlanCredits: 	 	  5,
-		CreditsRemaining:     5,
-		DailySchedulesUsed:   0,
-		DailySyncsUsed: 	  0,
-		LifetimeSyncsUsed:	  0,
-		LifetimeMessagesUsed: 0,
-		
-		LastDailyResetAt: 	  nil,
-		CreditsRenewAt: 	  nil,
-	}
-
-	if err := c.db.Create(&account).Error; err != nil {
-		logger.Error("Failed to create account: %v", err)
-
-		context.JSON(
-			http.StatusInternalServerError,
-			gin.H{"error": "Failed to create account"},
-		)
-		return
-	}
-
-	context.SetCookie(
-		"sendin_auth",
-		account.ID.String(),
-		3600*24*30,
-		"/",
-		"",
-		false,
-		true,
-	)
-
-	context.JSON(
-		http.StatusCreated,
-		gin.H{
-			"message": "Account created",
-			"data":    account,
+			"message": "Logged out",
 		},
 	)
 }

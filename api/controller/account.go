@@ -1,13 +1,14 @@
 package controller
 
 import (
-	logger "core/pkg/log"
-	model "core/internal/model"
 	middleware "core/api/middleware"
+	model "core/internal/model"
+	logger "core/pkg/log"
 
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/markbates/goth/gothic"
 )
 
 type UpdateAccountRequest struct {
@@ -62,13 +63,10 @@ func (c *Controller) UpdateAccount(context *gin.Context) {
 	account := middleware.Account(context)
 
 	var request UpdateAccountRequest
-
 	if err := context.ShouldBindJSON(&request); err != nil {
 		context.JSON(
 			http.StatusBadRequest,
-			gin.H{
-				"error": err.Error(),
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -104,18 +102,14 @@ func (c *Controller) UpdateAccount(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to update account",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
 
 	context.JSON(
 		http.StatusOK,
-		gin.H{
-			"data": account,
-		},
+		gin.H{ "data": account },
 	)
 }
 
@@ -132,32 +126,29 @@ func (c *Controller) UpdateAccount(context *gin.Context) {
 //	@Router			/account [delete]
 func (c *Controller) DeleteAccount(context *gin.Context) {
 	account := middleware.Account(context)
-
 	if err := c.db.Delete(
 		&model.Account{},
 		"id = ?",
 		account.ID,
 	).Error; err != nil {
-
 		logger.Error("Failed to delete account: %v", err)
-
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to delete account",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
 
-	context.SetCookie(
+	session, _ := gothic.Store.Get(
+		context.Request,
 		"sendin_auth",
-		"",
-		-1,
-		"/",
-		"",
-		false,
-		true,
+	)
+
+	session.Options.MaxAge = -1
+
+	_ = session.Save(
+		context.Request,
+		context.Writer,
 	)
 
 	context.JSON(

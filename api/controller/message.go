@@ -94,7 +94,7 @@ func (c *Controller) GetMessages(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{ "error": "Failed to count messages" },
+			gin.H{ "error": err.Error() },
 		)
 
 		return
@@ -110,12 +110,9 @@ func (c *Controller) GetMessages(context *gin.Context) {
 		err != nil {
 
 		logger.Error("Failed to find messages: %v", err)
-
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to find messages",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -165,9 +162,7 @@ func (c *Controller) GetMessage(context *gin.Context) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			context.JSON(
 				http.StatusNotFound,
-				gin.H{
-					"error": "Message not found",
-				},
+				gin.H{ "error": err.Error() },
 			)
 			return
 		}
@@ -176,9 +171,7 @@ func (c *Controller) GetMessage(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to find message",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -221,9 +214,7 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 	if err := context.ShouldBindJSON(&request); err != nil {
 		context.JSON(
 			http.StatusBadRequest,
-			gin.H{
-				"error": err.Error(),
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -236,9 +227,7 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 	if err != nil {
 		context.JSON(
 			http.StatusBadRequest,
-			gin.H{
-				"error": "Invalid scheduleTime format. Expected RFC3339.",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -260,14 +249,13 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 		message.TemplateID = request.TemplateID
 	}
 
-	if err := c.db.Create(&message).Error; err != nil {
+	if  err := c.db.Create(&message).Error; 
+		err != nil {
 		logger.Error("Failed to create message: %v", err)
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to create message",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -315,31 +303,25 @@ func (c *Controller) UpdateMessage(context *gin.Context) {
 
 	var request UpdateMessageRequest
 
-	if err := context.ShouldBindJSON(&request); err != nil {
+	if  err := context.ShouldBindJSON(&request); err != nil {
 		context.JSON(
 			http.StatusBadRequest,
-			gin.H{
-				"error": err.Error(),
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
 
 	var message model.Message
-
-	if err := c.db.
+	if  err := c.db.
 		Where(
 			"id = ? AND account_id = ?",
 			id,
 			account.ID,
 		).
 		First(&message).Error; err != nil {
-
 		context.JSON(
 			http.StatusNotFound,
-			gin.H{
-				"error": "Message not found",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -357,21 +339,33 @@ func (c *Controller) UpdateMessage(context *gin.Context) {
 	}
 
 	if request.ScheduleTime != "" {
-		scheduleTime, err := time.Parse(
-			time.RFC3339,
-			request.ScheduleTime,
+		location, err := time.LoadLocation(
+			request.Timezone,
 		)
 
-		if err != nil {
+		if  err != nil {
 			context.JSON(
 				http.StatusBadRequest,
-				gin.H{
-					"error": "Invalid scheduleTime format. Expected RFC3339.",
-				},
+				gin.H{ "error": err.Error() },
 			)
 			return
 		}
 
+		scheduleTime, err := time.ParseInLocation(
+			"2006-01-02T15:04",
+			request.ScheduleTime,
+			location,
+		)
+
+		if  err != nil {
+			context.JSON(
+				http.StatusBadRequest,
+				gin.H{ "error": err.Error() },
+			)
+			return
+		}
+
+		scheduleTime = scheduleTime.UTC()
 		if !message.ScheduleTime.Equal(scheduleTime) {
 			if !account.CanSchedule() {
 				context.JSON(
@@ -385,27 +379,25 @@ func (c *Controller) UpdateMessage(context *gin.Context) {
 		}
 
 		message.ScheduleTime = scheduleTime
+
 		account.ConsumeCredit()
 		account.DailySchedulesUsed++
 		account.LifetimeMessagesUsed++
-		if err := c.db.Save(&account).Error; err != nil {
+		if  err := c.db.Save(&account).Error; 
+			err != nil {
 			logger.Error(
 				"Failed to update account usage: %v",
 				err,
-			)
+			)	
 		}
 	}
 
 	if 	err := c.db.Save(&message).Error; 
 		err != nil {
-			
 		logger.Error("Failed to update message: %v", err)
-
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to update message",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -416,9 +408,7 @@ func (c *Controller) UpdateMessage(context *gin.Context) {
 
 	context.JSON(
 		http.StatusOK,
-		gin.H{
-			"data": message,
-		},
+		gin.H{ "data": message },
 	)
 }
 
@@ -449,12 +439,9 @@ func (c *Controller) DeleteMessage(context *gin.Context) {
 
 	if result.Error != nil {
 		logger.Error("Failed to delete message: %v", result.Error)
-
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to delete message",
-			},
+			gin.H{ "error": result.Error.Error() },
 		)
 		return
 	}

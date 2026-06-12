@@ -1,4 +1,4 @@
-package serializer
+package service
 
 import (
 	model "core/internal/model"

@@ -1,20 +1,29 @@
 package config
 
 type ServerConfig struct {
-	Port string
+	Port 	string
 	Passkey string
 }
 
 type DatabaseConfig struct {
-	Name string
-	Username string
+	SSL 	 string
+	Name 	 string
+	Host 	 string
+	Port 	 string
 	Password string
-	Host string
-	Port string
-	SSL string
+	Username string
+}
+
+type AuthConfig struct {
+	ClientID     	 string
+	CallbackURL  	 string
+	ClientSecret 	 string
+	SessionSecret 	 string
+	EncryptionSecret string
 }
 
 type Config struct {
+	Auth 	 AuthConfig
 	Server   ServerConfig
 	Database DatabaseConfig
 }

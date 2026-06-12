@@ -3,7 +3,7 @@ package controller
 import (
 	middleware "core/api/middleware"
 	model "core/internal/model"
-	service "core/internal/service"
+	service "core/internal/service/linkedin"
 	logger "core/pkg/log"
 	"math"
 	"strconv"
@@ -85,7 +85,7 @@ func (c *Controller) GetConnections(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{ "error": "Failed to count connections" },
+			gin.H{ "error": err.Error() },
 		)
 
 		return
@@ -103,9 +103,7 @@ func (c *Controller) GetConnections(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to find connections",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}

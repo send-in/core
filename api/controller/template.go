@@ -84,7 +84,7 @@ func (c *Controller) GetTemplates(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{ "error": "Failed to count templates" },
+			gin.H{ "error": err.Error() },
 		)
 
 		return
@@ -92,7 +92,7 @@ func (c *Controller) GetTemplates(context *gin.Context) {
 
 	var templates []model.Template
 
-	if err := query.
+	if  err := query.
 		Order(order).
 		Limit(limit).
 		Offset((page - 1) * limit).
@@ -106,9 +106,7 @@ func (c *Controller) GetTemplates(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to find templates",
-			},
+			gin.H{ "error": err.Error() },
 		)
 
 		return
@@ -155,23 +153,18 @@ func (c *Controller) GetTemplate(context *gin.Context) {
 		).
 		First(&template).Error; err != nil {
 
-		if errors.Is(err, gorm.ErrRecordNotFound) {
+		if  errors.Is(err, gorm.ErrRecordNotFound) {
 			context.JSON(
 				http.StatusNotFound,
-				gin.H{
-					"error": "Template not found",
-				},
+				gin.H{ "error": err.Error() },
 			)
 			return
 		}
 
 		logger.Error("Failed to find template: %v", err)
-
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to find template",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -218,9 +211,7 @@ func (c *Controller) CreateTemplate(context *gin.Context) {
 
 			context.JSON(
 				http.StatusInternalServerError,
-				gin.H{
-					"error": "Failed to count templates",
-				},
+				gin.H{ "error": err.Error() },
 			)
 
 			return
@@ -257,12 +248,9 @@ func (c *Controller) CreateTemplate(context *gin.Context) {
 
 	if err := c.db.Create(&template).Error; err != nil {
 		logger.Error("Failed to create template: %v", err)
-
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to create template",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -297,13 +285,10 @@ func (c *Controller) UpdateTemplate(context *gin.Context) {
 	id := context.Param("id")
 
 	var request UpdateTemplateRequest
-
-	if err := context.ShouldBindJSON(&request); err != nil {
+	if  err := context.ShouldBindJSON(&request); err != nil {
 		context.JSON(
 			http.StatusBadRequest,
-			gin.H{
-				"error": err.Error(),
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -321,18 +306,14 @@ func (c *Controller) UpdateTemplate(context *gin.Context) {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			context.JSON(
 				http.StatusNotFound,
-				gin.H{
-					"error": "Template not found",
-				},
+				gin.H{ "error": err.Error() },
 			)
 			return
 		}
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to find template",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
@@ -340,23 +321,19 @@ func (c *Controller) UpdateTemplate(context *gin.Context) {
 	template.Label = request.Label
 	template.Value = request.Value
 
-	if err := c.db.Save(&template).Error; err != nil {
+	if  err := c.db.Save(&template).Error; 
+	 	err != nil {
 		logger.Error("Failed to update template: %v", err)
-
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to update template",
-			},
+			gin.H{ "error": err.Error() },
 		)
 		return
 	}
 
 	context.JSON(
 		http.StatusOK,
-		gin.H{
-			"data": template,
-		},
+		gin.H{ "data": template },
 	)
 }
 
@@ -385,19 +362,16 @@ func (c *Controller) DeleteTemplate(context *gin.Context) {
 		).
 		Delete(&model.Template{})
 
-	if result.Error != nil {
+	if  result.Error != nil {
 		logger.Error("Failed to delete template: %v", result.Error)
-
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{
-				"error": "Failed to delete template",
-			},
+			gin.H{ "error": result.Error.Error() },
 		)
 		return
 	}
 
-	if result.RowsAffected == 0 {
+	if  result.RowsAffected == 0 {
 		context.JSON(
 			http.StatusNotFound,
 			gin.H{

@@ -2,9 +2,10 @@ package main
 
 import (
 	router "core/api/router"
+	auth "core/internal/authentication"
 	config "core/internal/config"
 	database "core/internal/database"
-	"core/internal/service"
+	service "core/internal/service/linkedin"
 	logger "core/pkg/log"
 	scheduler "core/pkg/schedule"
 
@@ -47,6 +48,9 @@ func main() {
 
 	err = database.Migrate(&cfg.Database)
 	logger.Fatal(err, "Failed to create migrations")
+
+	logger.Info("🔐 Auth provider setup")
+	go auth.Configure(&cfg.Auth)
 
 	logger.Info("⏰ Scheduler started")
 	go scheduler.Start(gormDB)

@@ -20,6 +20,16 @@ func Load() (*Config, error) {
 			Port: GetEnv("DB_PORT", "5432"),
 			SSL: GetEnv("DB_SSLMODE", "disable"),
 		},
+		Auth: AuthConfig{
+			ClientID: GetEnv("LINKEDIN_CLIENT_ID",""),
+			ClientSecret: GetEnv("LINKEDIN_CLIENT_SECRET",""),
+			SessionSecret: GetEnv("SESSION_SECRET", ""),
+			EncryptionSecret: GetEnv("ENCRYPTION_SECRET", ""),
+			CallbackURL: GetEnv(
+				"LINKEDIN_CALLBACK_URL",
+				"http://localhost:8000/api/v1/auth/linkedin/callback",
+			),
+		},
 	}, nil
 }
 

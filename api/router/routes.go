@@ -63,8 +63,10 @@ func Config(
 	// Public Routes
 	auth := v1.Group("/auth")
 	{
-		auth.POST("/login", controllers.Login)
-		auth.POST("/signup", controllers.Signup)
+		auth.GET("/linkedin", controllers.LinkedInLogin)
+		auth.GET("/linkedin/callback", controllers.LinkedInCallback)
+
+		auth.POST("/logout", controllers.Logout)
 	}
 
 	// Protected Routes

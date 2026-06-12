@@ -2,7 +2,6 @@ package service
 
 import (
 	model "core/internal/model"
-	serializer "core/internal/serializer"
 	logger "core/pkg/log"
 
 	"fmt"
@@ -67,7 +66,7 @@ func LinkedinService(db *gorm.DB) {
 				response, err := http.DefaultClient.Do(request)
 				if err != nil { break }
 
-				var payload serializer.ConnectionsResponse
+				var payload ConnectionsResponse
 				err = json.
 					  NewDecoder(response.Body).
 					  Decode(&payload)
@@ -81,7 +80,7 @@ func LinkedinService(db *gorm.DB) {
 				}
 
 				for _, element := range payload.Elements {
-					connection := serializer.LinkedinConnection(
+					connection := LinkedinConnection(
 						job.AccountID,
 						element,
 					)
