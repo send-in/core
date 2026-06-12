@@ -23,7 +23,7 @@ import (
 //	@Router			/auth/linkedin [get]
 func (c *Controller) LinkedInLogin(context *gin.Context) {
 	query := context.Request.URL.Query()
-	query.Set("provider", "linkedin")
+	query.Set("provider", "linkedin-oidc")
 	context.Request.URL.RawQuery = query.Encode()
 
 	gothic.BeginAuthHandler(
@@ -44,21 +44,8 @@ func (c *Controller) LinkedInLogin(context *gin.Context) {
 //	@Router			/auth/linkedin/callback [get]
 func (c *Controller) LinkedInCallback(context *gin.Context) {
 	query := context.Request.URL.Query()
-	query.Set("provider", "linkedin")
+	query.Set("provider", "linkedin-oidc")
 	context.Request.URL.RawQuery = query.Encode()
-
-	provider, err := gothic.GetProviderName(
-		context.Request,
-	)
-
-	logger.Info("provider=%s", provider)
-
-	sess, err := gothic.Store.Get(
-		context.Request,
-		"sendin_auth",
-	)
-
-	logger.Info("%+v", sess)
 	
 	user, err := gothic.CompleteUserAuth(
 		context.Writer,

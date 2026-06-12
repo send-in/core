@@ -2,11 +2,12 @@ package authentication
 
 import (
 	config "core/internal/config"
+	logger "core/pkg/log"
 
 	"github.com/gorilla/sessions"
 	"github.com/markbates/goth"
 	"github.com/markbates/goth/gothic"
-	"github.com/markbates/goth/providers/linkedin"
+	"github.com/markbates/goth/providers/openidConnect"
 )
 
 func Configure(cfg *config.AuthConfig) {
@@ -22,16 +23,22 @@ func Configure(cfg *config.AuthConfig) {
 		Secure:   false,
 	}
 
-	gothic.Store = store
-	goth.UseProviders(
-		linkedin.New(
-			cfg.ClientID,
-			cfg.ClientSecret,
-			cfg.CallbackURL,
-
-			"openid",
-			"profile",
-			"email",
-		),
+	provider, err := openidConnect.NewNamed(
+		"linkedin",
+		cfg.ClientID,
+		cfg.ClientSecret,
+		cfg.CallbackURL,
+		"https://www.linkedin.com/oauth/.well-known/openid-configuration",
+		"openid",
+		"profile",
+		"email",
 	)
+
+
+	if err != nil {
+		logger.Error("Failed to start auth %s", err)
+	}
+
+	gothic.Store = store
+	goth.UseProviders(provider)
 }

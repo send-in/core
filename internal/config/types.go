@@ -22,8 +22,15 @@ type AuthConfig struct {
 	EncryptionSecret string
 }
 
+type RazorpayConfig struct {
+	KeyID         string
+	KeySecret     string
+	WebhookSecret string
+}
+
 type Config struct {
 	Auth 	 AuthConfig
 	Server   ServerConfig
 	Database DatabaseConfig
+	Razorpay RazorpayConfig
 }

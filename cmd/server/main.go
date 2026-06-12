@@ -5,6 +5,7 @@ import (
 	auth "core/internal/authentication"
 	config "core/internal/config"
 	database "core/internal/database"
+	"core/internal/payment"
 	service "core/internal/service/linkedin"
 	logger "core/pkg/log"
 	scheduler "core/pkg/schedule"
@@ -39,7 +40,7 @@ func main() {
 	server := graceful.WithDefaults(
 		&http.Server{
 			Addr:         cfg.Server.Port,
-			Handler:      router.Config(gormDB, &cfg.Server),
+			Handler:      router.Config(gormDB),
 			IdleTimeout:  time.Minute,
 			ReadTimeout:  10 * time.Second,
 			WriteTimeout: 30 * time.Second,
@@ -50,7 +51,10 @@ func main() {
 	logger.Fatal(err, "Failed to create migrations")
 
 	logger.Info("🔐 Auth provider setup")
-	go auth.Configure(&cfg.Auth)
+	auth.Configure(&cfg.Auth)
+
+	logger.Info("💰 Razorpay setup")
+	payment.Configure(&cfg.Razorpay)
 
 	logger.Info("⏰ Scheduler started")
 	go scheduler.Start(gormDB)

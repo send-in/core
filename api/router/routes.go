@@ -3,7 +3,6 @@ package router
 import (
 	controller "core/api/controller"
 	middleware "core/api/middleware"
-	config "core/internal/config"
 
 	"net/http"
 
@@ -16,14 +15,9 @@ import (
 	_ "core/docs"
 )
 
-func Config(
-	db *gorm.DB,
-	cfg *config.ServerConfig,
-) http.Handler {
+func Config(db *gorm.DB) http.Handler {
 	router := gin.Default()
-
 	controllers := controller.Create(db)
-
 	router.Use(cors.New(
 		cors.Config{
 			AllowOrigins: []string{"*"},
@@ -65,9 +59,11 @@ func Config(
 	{
 		auth.GET("/linkedin", controllers.LinkedInLogin)
 		auth.GET("/linkedin/callback", controllers.LinkedInCallback)
-
 		auth.POST("/logout", controllers.Logout)
 	}
+
+	// Razorpay Webhook
+	v1.POST("/payments/webhook", controllers.RazorpayWebhook)
 
 	// Protected Routes
 	protected := v1.Group("/")
@@ -81,6 +77,9 @@ func Config(
 		// Connections
 		protected.GET("/connections", controllers.GetConnections)
 		protected.POST("/connections", controllers.EnrichConnections)
+
+		// Payments
+		protected.POST("/payments", controllers.CreatePayment)
 
 		// Messages
 		protected.GET("/messages", controllers.GetMessages)

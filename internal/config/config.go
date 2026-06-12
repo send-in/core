@@ -30,6 +30,11 @@ func Load() (*Config, error) {
 				"http://localhost:8000/api/v1/auth/linkedin/callback",
 			),
 		},
+		Razorpay: RazorpayConfig{
+			KeyID: GetEnv("RAZORPAY_KEY_ID", ""),
+			KeySecret: GetEnv("RAZORPAY_KEY_SECRET", ""),
+			WebhookSecret: GetEnv("RAZORPAY_WEBHOOK_SECRET", ""),
+		},
 	}, nil
 }
 
