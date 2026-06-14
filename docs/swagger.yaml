@@ -22,6 +22,15 @@ definitions:
     - name
     - profile
     type: object
+  api_controller.CreatePaymentRequest:
+    properties:
+      credits:
+        maximum: 200
+        minimum: 25
+        type: integer
+    required:
+    - credits
+    type: object
   api_controller.CreateTemplateRequest:
     properties:
       label:
@@ -32,32 +41,15 @@ definitions:
     - label
     - value
     type: object
-  api_controller.LoginRequest:
+  api_controller.EnrichConnectionsRequest:
     properties:
-      email:
-        type: string
+      ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
     required:
-    - email
-    type: object
-  api_controller.SignupRequest:
-    properties:
-      email:
-        type: string
-      name:
-        type: string
-      picture:
-        type: string
-      profile:
-        type: string
-      timezone:
-        type: string
-      token:
-        type: string
-      userAgent:
-        type: string
-    required:
-    - email
-    - name
+    - ids
     type: object
   api_controller.UpdateAccountRequest:
     properties:
@@ -76,15 +68,7 @@ definitions:
     type: object
   api_controller.UpdateMessageRequest:
     properties:
-      company:
-        type: string
       message:
-        type: string
-      name:
-        type: string
-      picture:
-        type: string
-      profile:
         type: string
       scheduleTime:
         type: string
@@ -92,9 +76,6 @@ definitions:
         type: string
       timezone:
         type: string
-    required:
-    - name
-    - profile
     type: object
   api_controller.UpdateTemplateRequest:
     properties:
@@ -110,14 +91,36 @@ definitions:
     properties:
       createdAt:
         type: string
+      creditsRemaining:
+        type: integer
+      creditsRenewAt:
+        type: string
+      dailySchedulesUsed:
+        type: integer
+      dailySyncsUsed:
+        type: integer
       email:
         type: string
       id:
         type: string
+      lastDailyResetAt:
+        type: string
+      lifetimeMessagesUsed:
+        type: integer
+      lifetimeSyncsUsed:
+        type: integer
       name:
         type: string
+      payments:
+        items:
+          $ref: '#/definitions/core_internal_model.Payment'
+        type: array
       picture:
         type: string
+      plan:
+        $ref: '#/definitions/core_internal_model.Plan'
+      planCredits:
+        type: integer
       profile:
         type: string
       timezone:
@@ -160,6 +163,60 @@ definitions:
       updatedAt:
         type: string
     type: object
+  core_internal_model.Payment:
+    properties:
+      account:
+        $ref: '#/definitions/core_internal_model.Account'
+      accountID:
+        type: string
+      amount:
+        format: int64
+        type: integer
+      completedAt:
+        type: string
+      createdAt:
+        type: string
+      currency:
+        type: string
+      externalID:
+        type: string
+      id:
+        type: string
+      orderID:
+        type: string
+      payload:
+        items:
+          type: integer
+        type: array
+      plan:
+        type: string
+      planCredits:
+        type: integer
+      provider:
+        type: string
+      status:
+        $ref: '#/definitions/core_internal_model.PaymentStatus'
+      updatedAt:
+        type: string
+    type: object
+  core_internal_model.PaymentStatus:
+    enum:
+    - pending
+    - succeeded
+    - failed
+    type: string
+    x-enum-varnames:
+    - PaymentPending
+    - PaymentSucceeded
+    - PaymentFailed
+  core_internal_model.Plan:
+    enum:
+    - free
+    - pro
+    type: string
+    x-enum-varnames:
+    - Free
+    - Pro
   core_internal_model.Template:
     properties:
       accountID:
@@ -265,64 +322,28 @@ paths:
       summary: Update account
       tags:
       - account
-  /auth/login:
-    post:
-      consumes:
-      - application/json
-      description: Authenticate an account using email
-      parameters:
-      - description: Login payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/api_controller.LoginRequest'
+  /auth/linkedin:
+    get:
+      description: Redirects the user to LinkedIn OAuth authentication
       produces:
       - application/json
       responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/core_internal_model.Account'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "401":
-          description: Unauthorized
-          schema:
-            additionalProperties: true
-            type: object
-      summary: Login
+        "307":
+          description: Temporary Redirect
+      summary: Login with LinkedIn
       tags:
       - auth
-  /auth/signup:
-    post:
-      consumes:
-      - application/json
-      description: Create a new SendIn account
-      parameters:
-      - description: Signup payload
-        in: body
-        name: body
-        required: true
-        schema:
-          $ref: '#/definitions/api_controller.SignupRequest'
+  /auth/linkedin/callback:
+    get:
+      description: Handles LinkedIn OAuth callback, creates account if needed, authenticates
+        user and sets session cookie
       produces:
       - application/json
       responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/core_internal_model.Account'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties: true
-            type: object
-        "409":
-          description: Conflict
+        "307":
+          description: Temporary Redirect
+        "401":
+          description: Unauthorized
           schema:
             additionalProperties: true
             type: object
@@ -331,7 +352,21 @@ paths:
           schema:
             additionalProperties: true
             type: object
-      summary: Create account
+      summary: LinkedIn callback
+      tags:
+      - auth
+  /auth/logout:
+    post:
+      description: Clears the current authentication session
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Logout
       tags:
       - auth
   /connections:
@@ -385,6 +420,67 @@ paths:
       security:
       - CookieAuth: []
       summary: Get connections
+      tags:
+      - connections
+    post:
+      description: Queues a background job to scrape and sync LinkedIn connections
+        for the authenticated account
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Enrich LinkedIn connections
+      tags:
+      - connections
+    put:
+      consumes:
+      - application/json
+      description: Fetches LinkedIn profiles for selected connections and enriches
+        country/timezone data
+      parameters:
+      - description: Connection ids
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.EnrichConnectionsRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Accepted
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Enrich connection locations
       tags:
       - connections
   /messages:
@@ -587,6 +683,106 @@ paths:
       summary: Update message
       tags:
       - messages
+  /payments:
+    post:
+      consumes:
+      - application/json
+      description: Creates a Razorpay order for purchasing SendIn credits
+      parameters:
+      - description: Payment request
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.CreatePaymentRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "409":
+          description: Conflict
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Create payment order
+      tags:
+      - payment
+  /payments/{orderId}:
+    get:
+      description: Get payment status by Razorpay order id
+      produces:
+      - application/json
+      responses: {}
+      security:
+      - CookieAuth: []
+      summary: Get payment
+      tags:
+      - payment
+  /payments/subscription:
+    delete:
+      description: Cancels the current Pro subscription while preserving any remaining
+        credits
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "401":
+          description: Unauthorized
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Cancel subscription
+      tags:
+      - payment
+  /payments/webhook:
+    post:
+      consumes:
+      - application/json
+      description: Processes successful Razorpay payments
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+        "400":
+          description: Bad Request
+        "401":
+          description: Unauthorized
+      summary: Razorpay webhook
+      tags:
+      - payment
   /templates:
     get:
       description: Get paginated templates belonging to the authenticated account

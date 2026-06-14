@@ -10,9 +10,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
 
+	_ "core/docs"
+
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"
-	_ "core/docs"
 )
 
 func Config(db *gorm.DB) http.Handler {
@@ -76,7 +77,8 @@ func Config(db *gorm.DB) http.Handler {
 
 		// Connections
 		protected.GET("/connections", controllers.GetConnections)
-		protected.POST("/connections", controllers.EnrichConnections)
+		protected.POST("/connections", controllers.SyncConnections)
+		protected.PUT("/connections", controllers.EnrichConnections)
 
 		// Payments
 		protected.POST("/payments", controllers.CreatePayment)

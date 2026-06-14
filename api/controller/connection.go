@@ -1,17 +1,25 @@
 package controller
 
 import (
-	service "core/internal/service/linkedin"
 	middleware "core/api/middleware"
 	model "core/internal/model"
+	service "core/internal/service/linkedin"
 	logger "core/pkg/log"
+	openai "core/pkg/openai"
+	parser "core/pkg/parser"
 
+	"fmt"
+	"io"
 	"math"
-	"strconv"
 	"net/http"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 )
+
+type EnrichConnectionsRequest struct {
+	IDs []string `json:"ids" binding:"required,min=1"`
+}
 
 // GetConnections godoc
 //
@@ -33,30 +41,36 @@ func (c *Controller) GetConnections(context *gin.Context) {
 	account := middleware.Account(context)
 	page, _ := strconv.Atoi(context.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(context.DefaultQuery("limit", "20"))
-	sort := context.DefaultQuery("sort","recents")
+	sort := context.DefaultQuery("sort", "recents")
 	ids := context.QueryArray("ids")
 	q := context.DefaultQuery("q", "")
 
-	if page < 1 { page = 1 }
-	if limit < 1 { limit = 20 }
-	if limit > 100 { limit = 100 }
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 20
+	}
+	if limit > 100 {
+		limit = 100
+	}
 
 	order := "connections.created_at DESC"
 
 	switch sort {
-		case "a-z":
-			order = "connections.first_name ASC, connections.last_name ASC"
+	case "a-z":
+		order = "connections.first_name ASC, connections.last_name ASC"
 
-		case "z-a":
-			order = "connections.first_name DESC, connections.last_name DESC"
+	case "z-a":
+		order = "connections.first_name DESC, connections.last_name DESC"
 
-		case "recents":
-			order = "connections.created_at DESC"
+	case "recents":
+		order = "connections.created_at DESC"
 	}
 
 	query := c.db.
 		Model(&model.Connection{}).
-		Joins("JOIN account_connections ac ON ac.connection_id = connections.id",).
+		Joins("JOIN account_connections ac ON ac.connection_id = connections.id").
 		Where("ac.account_id = ?", account.ID)
 
 	if q != "" {
@@ -81,7 +95,7 @@ func (c *Controller) GetConnections(context *gin.Context) {
 
 	var count int64
 	if err := query.
-		Count(&count).Error;  err != nil {
+		Count(&count).Error; err != nil {
 		logger.Error(
 			"Failed to count connections: %v",
 			err,
@@ -89,7 +103,7 @@ func (c *Controller) GetConnections(context *gin.Context) {
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{ "error": err.Error() },
+			gin.H{"error": err.Error()},
 		)
 
 		return
@@ -97,19 +111,17 @@ func (c *Controller) GetConnections(context *gin.Context) {
 
 	var connections []model.Connection
 
-
 	if err := query.
-        Distinct("connections.*").
+		Distinct("connections.*").
 		Order(order).
 		Limit(limit).
 		Offset((page - 1) * limit).
-		Find(&connections).Error; 
-		err != nil {
+		Find(&connections).Error; err != nil {
 		logger.Error("Failed to find connections: %v", err)
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{ "error": err.Error() },
+			gin.H{"error": err.Error()},
 		)
 		return
 	}
@@ -129,14 +141,14 @@ func (c *Controller) GetConnections(context *gin.Context) {
 				float64(count) / float64(limit),
 			)),
 			"count": count,
-			"page": page,
+			"page":  page,
 			"limit": limit,
-			"data": connections,
+			"data":  connections,
 		},
 	)
 }
 
-// EnrichConnections godoc
+// SyncConnections godoc
 //
 //	@Summary		Enrich LinkedIn connections
 //	@Description	Queues a background job to scrape and sync LinkedIn connections for the authenticated account
@@ -146,9 +158,7 @@ func (c *Controller) GetConnections(context *gin.Context) {
 //	@Success		202	{object}	map[string]interface{}
 //	@Failure		401	{object}	map[string]interface{}
 //	@Router			/connections    [post]
-func (c *Controller) EnrichConnections(
-	context *gin.Context,
-) {
+func (c *Controller) SyncConnections(context *gin.Context) {
 	account := middleware.Account(context)
 	if !account.CanSync() {
 		context.JSON(
@@ -163,14 +173,14 @@ func (c *Controller) EnrichConnections(
 	service.EnrichmentJobs <- service.EnrichmentRequest{
 		Profile:  account.Profile,
 		Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-		Token: "AQEDATOdT50DEwNMAAABnr2IK1EAAAGe4ZSvUVYAADcosge8f4JhAQDViMC_o0uYwa5DUG2EipxdGdjMTN1gpFaP0y4TIlXIJ8n5NUhOKsIP-Ydu60A6ontD91dAarMKLXTQfQrSctN_S6MgLHq4sbNh",
+		Token: account.Token,
 		AccountID: account.ID,
-		JSession: "ajax:4580714983183004179",
+		JSession:  "ajax:4580714983183004179",
 	}
 
 	account.DailySyncsUsed++
 	account.LifetimeSyncsUsed++
-	if  err := c.db.Save(&account).Error; 
+	if err := c.db.Save(&account).Error; 
 		err != nil {
 		logger.Error(
 			"Failed to update account sync usage: %v",
@@ -182,6 +192,195 @@ func (c *Controller) EnrichConnections(
 		http.StatusAccepted,
 		gin.H{
 			"message": "Enrichment jobs queued",
+		},
+	)
+}
+
+
+// EnrichConnections godoc
+//
+//	@Summary		Enrich connection locations
+//	@Description	Fetches LinkedIn profiles for selected connections and enriches country/timezone data
+//	@Tags			connections
+//	@Accept			json
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Param			body	body		EnrichConnectionsRequest	true	"Connection ids"
+//	@Success		202		{object}	map[string]interface{}
+//	@Failure		400		{object}	map[string]interface{}
+//	@Failure		401		{object}	map[string]interface{}
+//	@Failure		500		{object}	map[string]interface{}
+//	@Router			/connections [put]
+func (c *Controller) EnrichConnections(context *gin.Context) {
+	account := middleware.Account(context)
+
+	var request EnrichConnectionsRequest
+	if err := context.
+		ShouldBindJSON(&request); err != nil {
+
+		context.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+
+		return
+	}
+
+	var connections []model.Connection
+
+	if err := c.db.
+		Model(&model.Connection{}).
+		Joins(
+			"JOIN account_connections ac ON ac.connection_id = connections.id",
+		).
+		Where(
+			"ac.account_id = ?",
+			account.ID,
+		).
+		Where(
+			"connections.public_id IN ?",
+			request.IDs,
+		).
+		Where(
+			"connections.timezone IS NULL OR connections.country = ''",
+		).
+		Find(&connections).
+		Error; err != nil {
+
+		context.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+
+		return
+	}
+
+	for _, connection := range connections {
+		url := fmt.Sprintf(
+			"https://www.linkedin.com/in/%s",
+			connection.PublicID,
+		)
+
+		request, err := http.NewRequest(
+			http.MethodGet,
+			url,
+			nil,
+		)
+
+		request.Header = http.Header{
+			"Cookie": []string{
+				fmt.Sprintf(
+					"li_at=%s",
+					account.Token,
+				),
+			},
+		}
+
+		response, err := http.DefaultClient.Do(request)
+		if err != nil {
+			logger.Error(
+				"Failed fetching profile %s: %v",
+				connection.PublicID,
+				err,
+			)
+
+			continue
+		}
+
+		
+		body, err := io.ReadAll(response.Body)
+		response.Body.Close()
+
+
+		if err != nil {
+			logger.Error(
+				"Failed reading profile %s: %v",
+				connection.PublicID,
+				err,
+			)
+
+			continue
+		}
+
+		profile, err := parser.ParseProfile(
+			string(body),
+		)
+
+		if err != nil {
+			logger.Error(
+				"Failed parsing profile %s: %v",
+				connection.PublicID,
+				err,
+			)
+
+			continue
+		}
+
+		if profile.Location == "" {
+			continue
+		}
+
+		logger.Info(
+			"Location for %s: %s",
+			connection.PublicID,
+			profile.Location,
+		)
+
+		timezone, err := openai.Client.InferTimezone(profile.Location)
+		if err != nil {
+			logger.Error(
+				"Failed inferring timezone for %s: %v",
+				connection.PublicID,
+				err,
+			)
+
+			continue
+		}
+
+		if timezone.Timezone == "" {
+			continue
+		}
+
+		if err := c.db.
+			Model(&model.Connection{}).
+			Where(
+				"id = ?",
+				connection.ID,
+			).
+			Updates(
+				map[string]any{
+					"country": timezone.Country,
+					"timezone": timezone.Timezone,
+				},
+			).
+			Error; err != nil {
+
+			logger.Error(
+				"Failed updating connection %s: %v",
+				connection.PublicID,
+				err,
+			)
+
+			continue
+		}
+
+		logger.Success(
+			"Enriched %s => %s (%s)",
+			connection.PublicID,
+			timezone.Timezone,
+			timezone.Country,
+		)
+	}
+
+	context.JSON(
+		http.StatusAccepted,
+		gin.H{
+			"message": "Connection enrichment started",
+			"count": len(connections),
 		},
 	)
 }

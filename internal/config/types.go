@@ -1,24 +1,24 @@
 package config
 
 type ServerConfig struct {
-	Port 	string
+	Port    string
 	Passkey string
 }
 
 type DatabaseConfig struct {
-	SSL 	 string
-	Name 	 string
-	Host 	 string
-	Port 	 string
+	SSL      string
+	Name     string
+	Host     string
+	Port     string
 	Password string
 	Username string
 }
 
 type AuthConfig struct {
-	ClientID     	 string
-	CallbackURL  	 string
-	ClientSecret 	 string
-	SessionSecret 	 string
+	ClientID         string
+	CallbackURL      string
+	ClientSecret     string
+	SessionSecret    string
 	EncryptionSecret string
 }
 
@@ -28,9 +28,14 @@ type RazorpayConfig struct {
 	WebhookSecret string
 }
 
+type OpenAIConfig struct {
+	SecretKey string
+}
+
 type Config struct {
-	Auth 	 AuthConfig
+	Auth     AuthConfig
 	Server   ServerConfig
 	Database DatabaseConfig
 	Razorpay RazorpayConfig
+	OpenAI   OpenAIConfig
 }

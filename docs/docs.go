@@ -145,46 +145,46 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/login": {
-            "post": {
-                "description": "Authenticate an account using email",
-                "consumes": [
-                    "application/json"
-                ],
+        "/auth/linkedin": {
+            "get": {
+                "description": "Redirects the user to LinkedIn OAuth authentication",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "auth"
                 ],
-                "summary": "Login",
-                "parameters": [
-                    {
-                        "description": "Login payload",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/api_controller.LoginRequest"
-                        }
-                    }
-                ],
+                "summary": "Login with LinkedIn",
                 "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/core_internal_model.Account"
-                        }
+                    "307": {
+                        "description": "Temporary Redirect"
+                    }
+                }
+            }
+        },
+        "/auth/linkedin/callback": {
+            "get": {
+                "description": "Handles LinkedIn OAuth callback, creates account if needed, authenticates user and sets session cookie",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "auth"
+                ],
+                "summary": "LinkedIn callback",
+                "responses": {
+                    "307": {
+                        "description": "Temporary Redirect"
                     },
-                    "400": {
-                        "description": "Bad Request",
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
                         }
                     },
-                    "401": {
-                        "description": "Unauthorized",
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -193,53 +193,19 @@ const docTemplate = `{
                 }
             }
         },
-        "/auth/signup": {
+        "/auth/logout": {
             "post": {
-                "description": "Create a new SendIn account",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Clears the current authentication session",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
                     "auth"
                 ],
-                "summary": "Create account",
-                "parameters": [
-                    {
-                        "description": "Signup payload",
-                        "name": "body",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/api_controller.SignupRequest"
-                        }
-                    }
-                ],
+                "summary": "Logout",
                 "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/core_internal_model.Account"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "409": {
-                        "description": "Conflict",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": true
-                        }
-                    },
-                    "500": {
-                        "description": "Internal Server Error",
+                    "200": {
+                        "description": "OK",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -319,6 +285,96 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Fetches LinkedIn profiles for selected connections and enriches country/timezone data",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Enrich connection locations",
+                "parameters": [
+                    {
+                        "description": "Connection ids",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api_controller.EnrichConnectionsRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Queues a background job to scrape and sync LinkedIn connections for the authenticated account",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Enrich LinkedIn connections",
+                "responses": {
+                    "202": {
+                        "description": "Accepted",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
                         "schema": {
                             "type": "object",
                             "additionalProperties": true
@@ -628,6 +684,158 @@ const docTemplate = `{
                         }
                     }
                 }
+            }
+        },
+        "/payments": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Creates a Razorpay order for purchasing SendIn credits",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Create payment order",
+                "parameters": [
+                    {
+                        "description": "Payment request",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api_controller.CreatePaymentRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "409": {
+                        "description": "Conflict",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/payments/subscription": {
+            "delete": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Cancels the current Pro subscription while preserving any remaining credits",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Cancel subscription",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "401": {
+                        "description": "Unauthorized",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
+        },
+        "/payments/webhook": {
+            "post": {
+                "description": "Processes successful Razorpay payments",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Razorpay webhook",
+                "responses": {
+                    "200": {
+                        "description": "OK"
+                    },
+                    "400": {
+                        "description": "Bad Request"
+                    },
+                    "401": {
+                        "description": "Unauthorized"
+                    }
+                }
+            }
+        },
+        "/payments/{orderId}": {
+            "get": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Get payment status by Razorpay order id",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "payment"
+                ],
+                "summary": "Get payment",
+                "responses": {}
             }
         },
         "/templates": {
@@ -971,6 +1179,19 @@ const docTemplate = `{
                 }
             }
         },
+        "api_controller.CreatePaymentRequest": {
+            "type": "object",
+            "required": [
+                "credits"
+            ],
+            "properties": {
+                "credits": {
+                    "type": "integer",
+                    "maximum": 200,
+                    "minimum": 25
+                }
+            }
+        },
         "api_controller.CreateTemplateRequest": {
             "type": "object",
             "required": [
@@ -986,44 +1207,18 @@ const docTemplate = `{
                 }
             }
         },
-        "api_controller.LoginRequest": {
+        "api_controller.EnrichConnectionsRequest": {
             "type": "object",
             "required": [
-                "email"
+                "ids"
             ],
             "properties": {
-                "email": {
-                    "type": "string"
-                }
-            }
-        },
-        "api_controller.SignupRequest": {
-            "type": "object",
-            "required": [
-                "email",
-                "name"
-            ],
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "picture": {
-                    "type": "string"
-                },
-                "profile": {
-                    "type": "string"
-                },
-                "timezone": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "userAgent": {
-                    "type": "string"
+                "ids": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "type": "string"
+                    }
                 }
             }
         },
@@ -1052,24 +1247,8 @@ const docTemplate = `{
         },
         "api_controller.UpdateMessageRequest": {
             "type": "object",
-            "required": [
-                "name",
-                "profile"
-            ],
             "properties": {
-                "company": {
-                    "type": "string"
-                },
                 "message": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "picture": {
-                    "type": "string"
-                },
-                "profile": {
                     "type": "string"
                 },
                 "scheduleTime": {
@@ -1104,17 +1283,50 @@ const docTemplate = `{
                 "createdAt": {
                     "type": "string"
                 },
+                "creditsRemaining": {
+                    "type": "integer"
+                },
+                "creditsRenewAt": {
+                    "type": "string"
+                },
+                "dailySchedulesUsed": {
+                    "type": "integer"
+                },
+                "dailySyncsUsed": {
+                    "type": "integer"
+                },
                 "email": {
                     "type": "string"
                 },
                 "id": {
                     "type": "string"
                 },
+                "lastDailyResetAt": {
+                    "type": "string"
+                },
+                "lifetimeMessagesUsed": {
+                    "type": "integer"
+                },
+                "lifetimeSyncsUsed": {
+                    "type": "integer"
+                },
                 "name": {
                     "type": "string"
                 },
+                "payments": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/core_internal_model.Payment"
+                    }
+                },
                 "picture": {
                     "type": "string"
+                },
+                "plan": {
+                    "$ref": "#/definitions/core_internal_model.Plan"
+                },
+                "planCredits": {
+                    "type": "integer"
                 },
                 "profile": {
                     "type": "string"
@@ -1179,6 +1391,84 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "core_internal_model.Payment": {
+            "type": "object",
+            "properties": {
+                "account": {
+                    "$ref": "#/definitions/core_internal_model.Account"
+                },
+                "accountID": {
+                    "type": "string"
+                },
+                "amount": {
+                    "type": "integer",
+                    "format": "int64"
+                },
+                "completedAt": {
+                    "type": "string"
+                },
+                "createdAt": {
+                    "type": "string"
+                },
+                "currency": {
+                    "type": "string"
+                },
+                "externalID": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "orderID": {
+                    "type": "string"
+                },
+                "payload": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
+                "plan": {
+                    "type": "string"
+                },
+                "planCredits": {
+                    "type": "integer"
+                },
+                "provider": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/core_internal_model.PaymentStatus"
+                },
+                "updatedAt": {
+                    "type": "string"
+                }
+            }
+        },
+        "core_internal_model.PaymentStatus": {
+            "type": "string",
+            "enum": [
+                "pending",
+                "succeeded",
+                "failed"
+            ],
+            "x-enum-varnames": [
+                "PaymentPending",
+                "PaymentSucceeded",
+                "PaymentFailed"
+            ]
+        },
+        "core_internal_model.Plan": {
+            "type": "string",
+            "enum": [
+                "free",
+                "pro"
+            ],
+            "x-enum-varnames": [
+                "Free",
+                "Pro"
+            ]
         },
         "core_internal_model.Template": {
             "type": "object",

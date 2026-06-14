@@ -5,9 +5,10 @@ import (
 	auth "core/internal/authentication"
 	config "core/internal/config"
 	database "core/internal/database"
-	"core/internal/payment"
+	payment "core/internal/payment"
 	service "core/internal/service/linkedin"
 	logger "core/pkg/log"
+	openai "core/pkg/openai"
 	scheduler "core/pkg/schedule"
 
 	"net/http"
@@ -56,6 +57,13 @@ func main() {
 	logger.Info("💰 Razorpay setup")
 	payment.Configure(&cfg.Razorpay)
 
+	logger.Info("🤖 OpenAI setup")
+	openai.Configure(
+		&openai.Config{
+			APIKey: cfg.OpenAI.SecretKey,
+		},
+	)
+
 	logger.Info("⏰ Scheduler started")
 	go scheduler.Start(gormDB)
 
@@ -64,11 +72,10 @@ func main() {
 
 	logger.Info("🚀 Starting server on port %s", cfg.Server.Port)
 	err = graceful.Graceful(
-		server.ListenAndServe, 
+		server.ListenAndServe,
 		server.Shutdown,
 	)
 
 	logger.Fatal(err, "Failed to gracefully shutdown")
 	logger.Info("🛑 Server exited")
 }
-
