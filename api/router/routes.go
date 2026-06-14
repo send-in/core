@@ -80,6 +80,7 @@ func Config(db *gorm.DB) http.Handler {
 
 		// Payments
 		protected.POST("/payments", controllers.CreatePayment)
+		protected.DELETE("/payments", controllers.CancelSubscription)
 
 		// Messages
 		protected.GET("/messages", controllers.GetMessages)

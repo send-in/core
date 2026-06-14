@@ -81,28 +81,47 @@ func LinkedinService(db *gorm.DB) {
 
 				for _, element := range payload.Elements {
 					connection := LinkedinConnection(
-						job.AccountID,
 						element,
 					)
 
-					err := db.Where(
-						"account_id = ? AND public_id = ?",
-						job.AccountID,
-						connection.PublicID,
-					).Assign(model.Connection{
-						FirstName: connection.FirstName,
-						LastName:  connection.LastName,
-						Bio:       connection.Bio,
-						Picture:   connection.Picture,
-						Company:   connection.Company,
-						Country:   connection.Country,
-					}).FirstOrCreate(
-						&connection,
-					).Error
+					err := db.Transaction(
+						func(tx *gorm.DB) error {
+							if err := tx.
+								Where(
+									"public_id = ?",
+									connection.PublicID,
+								).
+								Assign(model.Connection{
+									FirstName: connection.FirstName,
+									LastName:  connection.LastName,
+									Bio:       connection.Bio,
+									Picture:   connection.Picture,
+									Company:   connection.Company,
+									Country:   connection.Country,
+									Timezone:  connection.Timezone,
+								}).
+								FirstOrCreate(
+									&connection,
+								).
+								Error; err != nil {
+								return err
+							}
+
+							return tx.
+								FirstOrCreate(
+									&model.AccountConnection{},
+									model.AccountConnection{
+										AccountID:    job.AccountID,
+										ConnectionID: connection.ID,
+									},
+								).
+								Error
+						},
+					)
 
 					if err != nil {
 						logger.Error(
-							"Failed to upsert %s: %v",
+							"Failed to sync %s: %v",
 							connection.PublicID,
 							err,
 						)

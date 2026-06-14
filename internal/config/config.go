@@ -33,7 +33,6 @@ func Load() (*Config, error) {
 		Razorpay: RazorpayConfig{
 			KeyID: GetEnv("RAZORPAY_KEY_ID", ""),
 			KeySecret: GetEnv("RAZORPAY_KEY_SECRET", ""),
-			WebhookSecret: GetEnv("RAZORPAY_WEBHOOK_SECRET", ""),
 		},
 	}, nil
 }

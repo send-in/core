@@ -1,13 +1,13 @@
 package controller
 
 import (
+	service "core/internal/service/linkedin"
 	middleware "core/api/middleware"
 	model "core/internal/model"
-	service "core/internal/service/linkedin"
 	logger "core/pkg/log"
+
 	"math"
 	"strconv"
-
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -41,27 +41,31 @@ func (c *Controller) GetConnections(context *gin.Context) {
 	if limit < 1 { limit = 20 }
 	if limit > 100 { limit = 100 }
 
-	order := "created_at DESC"
+	order := "connections.created_at DESC"
+
 	switch sort {
 		case "a-z":
-			order = "first_name ASC, last_name ASC"
+			order = "connections.first_name ASC, connections.last_name ASC"
+
 		case "z-a":
-			order = "first_name DESC, last_name DESC"
+			order = "connections.first_name DESC, connections.last_name DESC"
+
 		case "recents":
-			order = "created_at DESC"
+			order = "connections.created_at DESC"
 	}
 
 	query := c.db.
 		Model(&model.Connection{}).
-		Where("account_id = ?", account.ID)
+		Joins("JOIN account_connections ac ON ac.connection_id = connections.id",).
+		Where("ac.account_id = ?", account.ID)
 
 	if q != "" {
 		query = query.Where(
-			`public_id ILIKE ?
-			OR first_name ILIKE ?
-			OR last_name ILIKE ?
-			OR company ILIKE ?
-			OR bio ILIKE ?`,
+			`connections.public_id ILIKE ?
+			OR connections.first_name ILIKE ?
+			OR connections.last_name ILIKE ?
+			OR connections.company ILIKE ?
+			OR connections.bio ILIKE ?`,
 			"%"+q+"%",
 			"%"+q+"%",
 			"%"+q+"%",
@@ -72,7 +76,7 @@ func (c *Controller) GetConnections(context *gin.Context) {
 
 	if len(ids) > 0 {
 		query = query.
-			Where("public_id IN ?", ids)
+			Where("connections.public_id IN ?", ids)
 	}
 
 	var count int64
@@ -93,12 +97,14 @@ func (c *Controller) GetConnections(context *gin.Context) {
 
 	var connections []model.Connection
 
+
 	if err := query.
+        Distinct("connections.*").
 		Order(order).
 		Limit(limit).
 		Offset((page - 1) * limit).
-		Find(&connections).Error; err != nil {
-
+		Find(&connections).Error; 
+		err != nil {
 		logger.Error("Failed to find connections: %v", err)
 
 		context.JSON(
@@ -106,6 +112,14 @@ func (c *Controller) GetConnections(context *gin.Context) {
 			gin.H{ "error": err.Error() },
 		)
 		return
+	}
+
+	for _, c := range connections {
+		logger.Info(
+			"Connection: %s %s",
+			c.ID,
+			c.PublicID,
+		)
 	}
 
 	context.JSON(
@@ -149,7 +163,7 @@ func (c *Controller) EnrichConnections(
 	service.EnrichmentJobs <- service.EnrichmentRequest{
 		Profile:  account.Profile,
 		Agent: "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/139.0.0.0 Safari/537.36",
-		Token: account.Token,
+		Token: "AQEDATOdT50DEwNMAAABnr2IK1EAAAGe4ZSvUVYAADcosge8f4JhAQDViMC_o0uYwa5DUG2EipxdGdjMTN1gpFaP0y4TIlXIJ8n5NUhOKsIP-Ydu60A6ontD91dAarMKLXTQfQrSctN_S6MgLHq4sbNh",
 		AccountID: account.ID,
 		JSession: "ajax:4580714983183004179",
 	}

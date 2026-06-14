@@ -200,84 +200,115 @@ func (c *Controller) GetMessage(context *gin.Context) {
 //	@Router			/messages [post]
 func (c *Controller) CreateMessage(context *gin.Context) {
 	account := middleware.Account(context)
-	if !account.CanSchedule() {
+
+	var requests []CreateMessageRequest
+	if err := context.ShouldBindJSON(&requests); err != nil {
 		context.JSON(
-			http.StatusForbidden,
+			http.StatusBadRequest,
+			gin.H{"error": err.Error()},
+		)
+		return
+	}
+
+	if len(requests) == 0 {
+		context.JSON(
+			http.StatusBadRequest,
 			gin.H{
-				"error": "Message limit reached",
+				"error": "No messages provided",
 			},
 		)
 		return
 	}
 
-	var request CreateMessageRequest
-	if err := context.ShouldBindJSON(&request); err != nil {
+	if account.CreditsRemaining < len(requests) {
 		context.JSON(
-			http.StatusBadRequest,
-			gin.H{ "error": err.Error() },
+			http.StatusForbidden,
+			gin.H{
+				"error": "Not enough credits",
+			},
 		)
 		return
 	}
 
-	scheduleTime, err := time.Parse(
-		time.RFC3339,
-		request.ScheduleTime,
+	messages := make(
+		[]model.Message,
+		0,
+		len(requests),
+	)
+
+	for _, request := range requests {
+		scheduleTime, err := time.Parse(
+			time.RFC3339,
+			request.ScheduleTime,
+		)
+
+		if err != nil {
+			context.JSON(
+				http.StatusBadRequest,
+				gin.H{
+					"error": err.Error(),
+				},
+			)
+			return
+		}
+
+		message := model.Message{
+			Name:         request.Name,
+			IsSent:       false,
+			Picture:      request.Picture,
+			Profile:      request.Profile,
+			Company:      request.Company,
+			Message:      request.Message,
+			Timezone:     request.Timezone,
+			AccountID:    &account.ID,
+			ScheduleTime: scheduleTime,
+		}
+
+		if request.TemplateID != nil {
+			message.TemplateID = request.TemplateID
+		}
+
+		messages = append(
+			messages,
+			message,
+		)
+	}
+
+	err := c.db.Transaction(
+		func(tx *gorm.DB) error {
+			if err := tx.Create(&messages).Error; err != nil {
+				return err
+			}
+
+			account.CreditsRemaining -= len(messages)
+			account.DailySchedulesUsed += len(messages)
+			account.LifetimeMessagesUsed += len(messages)
+
+			return tx.Save(&account).Error
+		},
 	)
 
 	if err != nil {
-		context.JSON(
-			http.StatusBadRequest,
-			gin.H{ "error": err.Error() },
+		logger.Error(
+			"Failed to create messages: %v",
+			err,
 		)
-		return
-	}
-
-
-	message := model.Message{
-		Name:      request.Name,
-		IsSent:    false,
-		Picture:   request.Picture,
-		Profile:   request.Profile,
-		Company:   request.Company,
-		Message:   request.Message,
-		Timezone:  request.Timezone,
-		AccountID: &account.ID,
-		ScheduleTime: scheduleTime,
-	}
-
-	if request.TemplateID != nil {
-		message.TemplateID = request.TemplateID
-	}
-
-	if  err := c.db.Create(&message).Error; 
-		err != nil {
-		logger.Error("Failed to create message: %v", err)
 
 		context.JSON(
 			http.StatusInternalServerError,
-			gin.H{ "error": err.Error() },
+			gin.H{
+				"error": err.Error(),
+			},
 		)
 		return
 	}
-
-	account.ConsumeCredit()
-	account.DailySchedulesUsed++
-	account.LifetimeMessagesUsed++
-	if err := c.db.Save(&account).Error; err != nil {
-		logger.Error(
-			"Failed to update account usage: %v",
-			err,
-		)
-	}
-
-	// TODO:
-	// Publish scheduled message to cron / queue service.
 
 	context.JSON(
 		http.StatusCreated,
 		gin.H{
-			"message": "Message created",
-			"data":    message,
+			"message": "Messages created",
+			"count": len(messages),
+			"data": messages,
 		},
 	)
 }
@@ -339,28 +370,17 @@ func (c *Controller) UpdateMessage(context *gin.Context) {
 	}
 
 	if request.ScheduleTime != "" {
-		location, err := time.LoadLocation(
-			request.Timezone,
-		)
-
-		if  err != nil {
-			context.JSON(
-				http.StatusBadRequest,
-				gin.H{ "error": err.Error() },
-			)
-			return
-		}
-
-		scheduleTime, err := time.ParseInLocation(
-			"2006-01-02T15:04",
+		scheduleTime, err := time.Parse(
+			time.RFC3339,
 			request.ScheduleTime,
-			location,
 		)
 
-		if  err != nil {
+		if err != nil {
 			context.JSON(
 				http.StatusBadRequest,
-				gin.H{ "error": err.Error() },
+				gin.H{
+					"error": err.Error(),
+				},
 			)
 			return
 		}

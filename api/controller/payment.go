@@ -1,20 +1,20 @@
 package controller
 
 import (
-	middleware "core/api/middleware"
+	logger "core/pkg/log"
 	model "core/internal/model"
 	payment "core/internal/payment"
-	logger "core/pkg/log"
-	"encoding/json"
+	middleware "core/api/middleware"
+
+	"time"
 	"errors"
 	"strconv"
-	"time"
-
 	"net/http"
+	"encoding/json"
+	"gorm.io/gorm"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"gorm.io/gorm"
 )
 
 type CreatePaymentRequest struct {
@@ -129,85 +129,96 @@ func (c *Controller) CreatePayment(context *gin.Context) {
 	}
 
 	amount := int64(
-		request.Credits * 
-		payment.PricePerCredit * 
+		request.Credits *
+		payment.PricePerCredit *
 		100,
 	)
 
-	var existing model.Payment
-	err := c.db.
+	order, err := payment.CreateOrder(
+		payment.OrderRequest{
+			Amount:   amount,
+			Currency: "USD",
+			Receipt:  uuid.NewString(),
+			Notes: map[string]string{
+				"accountId": account.ID.String(),
+				"credits":   strconv.Itoa(request.Credits),
+				"plan":      "pro",
+			},
+		},
+	)
+
+	if err != nil {
+		context.JSON(
+			http.StatusInternalServerError,
+			gin.H{ "error": err.Error() },
+		)
+
+		return
+	}
+
+	var record model.Payment
+	err = c.db.
 		Where(
 			"account_id = ? AND status = ?",
 			account.ID,
 			model.PaymentPending,
 		).
-		First(&existing).
+		Order("created_at DESC").
+		First(&record).
 		Error
 
 	if err == nil {
-		context.JSON(
-			http.StatusConflict,
-			gin.H{
-				"error": "Pending payment already exists",
-			},
-		)
+		record.Plan = "pro"
+		record.PlanCredits = request.Credits
+		record.Amount = amount
+		record.Currency = "USD"
+		record.Provider = "razorpay"
+		record.OrderID = order.ID
+		record.ExternalID = ""
+		record.Payload = nil
+		record.CompletedAt = nil
 
-		return
-	}
+		if  err := c.db.Save(&record).Error; 
+			err != nil {
 
-	if  err != nil &&
-		!errors.Is(err, gorm.ErrRecordNotFound) {
-		context.JSON(
-			http.StatusInternalServerError,
-			gin.H{ "error": err.Error() },
-		)
-		return
-	}
+			context.JSON(
+				http.StatusInternalServerError,
+				gin.H{ "error": err.Error() },
+			)
 
-	order, err := payment.
-		CreateOrder(
-			payment.OrderRequest{
-				Amount:   amount,
-				Currency: "USD",
-				Receipt: uuid.NewString(),
-				Notes: map[string]string{
-					"accountId": account.ID.String(),
-					"credits":   strconv.Itoa(request.Credits),
-					"plan": "pro",
-				},
-			},
-		)
+			return
+		}
+	} else if errors.Is(
+		err,
+		gorm.ErrRecordNotFound,
+	) {
 
-	if err != nil {
-		context.JSON(
-			http.StatusInternalServerError,
-			gin.H{
-				"error": err.Error(),
-			},
-		)
+		record = model.Payment{
+			AccountID: account.ID,
+			Status: model.PaymentPending,
+			Plan: "pro",
+			PlanCredits: request.Credits,
+			Amount: amount,
+			Currency: "USD",
+			Provider: "razorpay",
+			OrderID: order.ID,
+		}
 
-		return
-	}
+		if  err := c.db.Create(&record).Error; 
+			err != nil {
+			context.JSON(
+				http.StatusInternalServerError,
+				gin.H{ "error": err.Error() },
+			)
 
-	record := model.Payment{
-		AccountID: account.ID,
-		Status: model.PaymentPending,
-		Plan: "pro",
-		PlanCredits: request.Credits,
-		Amount: amount,
-		Currency: "USD",
-		Provider: "razorpay",
-		OrderID: order.ID,
-	}
-
-	if 	err := c.db.
-		Create(&record).
-		Error; 
-		err != nil {
+			return
+		}
+	} else {
 		context.JSON(
 			http.StatusInternalServerError,
 			gin.H{ "error": err.Error() },
 		)
+
 		return
 	}
 
@@ -276,9 +287,8 @@ func (c *Controller) RazorpayWebhook(context *gin.Context) {
 				Payment.
 				Entity.
 				OrderID,
-		).
-		First(&record).
-		Error; err != nil {
+		).First(&record).Error; 
+		err != nil {
 
 		logger.Warning(
 			"Payment not found for order %s",
@@ -286,6 +296,11 @@ func (c *Controller) RazorpayWebhook(context *gin.Context) {
 		)
 
 		context.Status(http.StatusNotFound)
+		return
+	}
+
+	if record.ExternalID != "" {
+		context.Status(http.StatusOK)
 		return
 	}
 
@@ -310,15 +325,21 @@ func (c *Controller) RazorpayWebhook(context *gin.Context) {
 	err = c.db.Transaction(
 		func(tx *gorm.DB) error {
 			record.Status = model.PaymentSucceeded
-			record.ExternalID = webhook.
-				Payload.
-				Payment.
-				Entity.
-				ID
-
+			record.ExternalID = webhook.Payload.Payment.Entity.ID
+			record.Payload = body
 			record.CompletedAt = &now
-			account.PlanCredits += record.PlanCredits
-			account.CreditsRemaining += record.PlanCredits
+
+			account.Plan = model.Pro
+			account.PlanCredits = record.PlanCredits
+
+			if account.CreditsRemaining < record.PlanCredits {
+				account.CreditsRemaining = record.PlanCredits
+			}
+
+			if account.CreditsRenewAt == nil {
+				next := now.AddDate(0, 1, 0)
+				account.CreditsRenewAt = &next
+			}
 
 			if 	err := tx.Save(&record).Error; 
 				err != nil {
@@ -352,4 +373,66 @@ func (c *Controller) RazorpayWebhook(context *gin.Context) {
 	)
 
 	context.Status(http.StatusOK)
+}
+
+// CancelSubscription godoc
+//
+//	@Summary		Cancel subscription
+//	@Description	Cancels the current Pro subscription while preserving any remaining credits
+//	@Tags			payment
+//	@Produce		json
+//	@Security		CookieAuth
+//	@Success		200	{object}	map[string]interface{}
+//	@Failure		401	{object}	map[string]interface{}
+//	@Failure		500	{object}	map[string]interface{}
+//	@Router			/payments/subscription [delete]
+func (c *Controller) CancelSubscription(
+	context *gin.Context,
+) {
+	account := middleware.Account(context)
+
+	if account.Plan == model.Free {
+		context.JSON(
+			http.StatusBadRequest,
+			gin.H{
+				"error": "No active subscription",
+			},
+		)
+		return
+	}
+
+	account.Plan = model.Free
+	account.PlanCredits = 0
+	account.CreditsRenewAt = nil
+
+	if err := c.db.
+		Save(&account).
+		Error; err != nil {
+
+		logger.Error(
+			"Failed to cancel subscription for account %s: %v",
+			account.ID,
+			err,
+		)
+
+		context.JSON(
+			http.StatusInternalServerError,
+			gin.H{
+				"error": err.Error(),
+			},
+		)
+
+		return
+	}
+
+	context.JSON(
+		http.StatusOK,
+		gin.H{
+			"message": "Subscription cancelled",
+			"data": gin.H{
+				"plan": account.Plan,
+				"creditsRemaining": account.CreditsRemaining,
+			},
+		},
+	)
 }

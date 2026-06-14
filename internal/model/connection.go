@@ -7,7 +7,6 @@ import (
 
 type Connection struct {
 	ID uuid.UUID `gorm:"<-:create;type:uuid;default:gen_random_uuid();primaryKey"`
-	AccountID *uuid.UUID `gorm:"not null"`
 	PublicID string `gorm:"uniqueIndex"`
 
 	FirstName string
@@ -22,4 +21,10 @@ type Connection struct {
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
+}
+
+type AccountConnection struct {
+    AccountID    uuid.UUID `gorm:"primaryKey"`
+    ConnectionID uuid.UUID `gorm:"primaryKey"`
+    CreatedAt time.Time
 }

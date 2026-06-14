@@ -2,8 +2,6 @@ package service
 
 import (
 	model "core/internal/model"
-
-	"github.com/google/uuid"
 )
 
 type ConnectionsResponse struct {
@@ -46,7 +44,6 @@ type Artifact struct {
 }
 
 func LinkedinConnection(
-	accountID uuid.UUID,
 	element ConnectionElement,
 ) model.Connection {
 	profile := element.MiniProfile
@@ -63,7 +60,6 @@ func LinkedinConnection(
 	}
 
 	return model.Connection{
-		AccountID: &accountID,
 		PublicID:  profile.PublicIdentifier,
 		FirstName: profile.FirstName,
 		LastName:  profile.LastName,
