@@ -51,6 +51,20 @@ definitions:
     required:
     - ids
     type: object
+  api_controller.InferTimezoneRequest:
+    properties:
+      location:
+        type: string
+    required:
+    - location
+    type: object
+  api_controller.InferTimezoneResponse:
+    properties:
+      country:
+        type: string
+      timezone:
+        type: string
+    type: object
   api_controller.UpdateAccountRequest:
     properties:
       email:
@@ -985,6 +999,41 @@ paths:
       summary: Update template
       tags:
       - templates
+  /timezone:
+    post:
+      consumes:
+      - application/json
+      description: Infers country and IANA timezone from a parsed LinkedIn profile
+        location
+      parameters:
+      - description: Profile
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/api_controller.InferTimezoneRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/api_controller.InferTimezoneResponse'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      security:
+      - CookieAuth: []
+      summary: Infer timezone from a LinkedIn profile
+      tags:
+      - connections
 securityDefinitions:
   CookieAuth:
     in: cookie

@@ -1143,6 +1143,59 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/timezone": {
+            "post": {
+                "security": [
+                    {
+                        "CookieAuth": []
+                    }
+                ],
+                "description": "Infers country and IANA timezone from a parsed LinkedIn profile location",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "connections"
+                ],
+                "summary": "Infer timezone from a LinkedIn profile",
+                "parameters": [
+                    {
+                        "description": "Profile",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/api_controller.InferTimezoneRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/api_controller.InferTimezoneResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -1219,6 +1272,28 @@ const docTemplate = `{
                     "items": {
                         "type": "string"
                     }
+                }
+            }
+        },
+        "api_controller.InferTimezoneRequest": {
+            "type": "object",
+            "required": [
+                "location"
+            ],
+            "properties": {
+                "location": {
+                    "type": "string"
+                }
+            }
+        },
+        "api_controller.InferTimezoneResponse": {
+            "type": "object",
+            "properties": {
+                "country": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
                 }
             }
         },
