@@ -21,16 +21,21 @@ func Config(db *gorm.DB) http.Handler {
 	controllers := controller.Create(db)
 	router.Use(cors.New(
 		cors.Config{
-			AllowOrigins: []string{"*"},
+			AllowCredentials: true,
+			AllowBrowserExtensions: true,
+			
+			AllowHeaders: []string{"*"},
+			AllowOrigins: []string{
+				"https://www.linkedin.com",
+				"chrome-extension://cbcembbkcnjeljpeipjfhddniphmfpnj",
+				"http://localhost:3000",
+			},
 			AllowMethods: []string{
 				"GET",
 				"POST",
 				"PUT",
 				"DELETE",
 			},
-			
-			AllowHeaders: []string{"*"},
-			AllowCredentials: true,
 		},
 	))
 

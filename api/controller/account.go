@@ -18,6 +18,8 @@ type UpdateAccountRequest struct {
 	Picture   string `json:"picture"`
 	Timezone  string `json:"timezone"`
 	UserAgent string `json:"userAgent"`
+	Token 	  string `json:"token"`
+	Session   string `json:"session"`
 }
 
 // GetAccount godoc
@@ -63,7 +65,8 @@ func (c *Controller) UpdateAccount(context *gin.Context) {
 	account := middleware.Account(context)
 
 	var request UpdateAccountRequest
-	if err := context.ShouldBindJSON(&request); err != nil {
+	if 	err := context.ShouldBindJSON(&request); 
+		err != nil {
 		context.JSON(
 			http.StatusBadRequest,
 			gin.H{ "error": err.Error() },
@@ -71,6 +74,17 @@ func (c *Controller) UpdateAccount(context *gin.Context) {
 		return
 	}
 
+	if request.Session != "" {
+		account.Session = request.Session
+	}
+
+	if request.Token != "" {
+		account.Token = request.Token
+	}
+	
+	if request.UserAgent != "" {
+		account.UserAgent = request.UserAgent
+	}
 	
 	if request.Name != "" {
 		account.Name = request.Name
@@ -92,10 +106,7 @@ func (c *Controller) UpdateAccount(context *gin.Context) {
 		account.Timezone = request.Timezone
 	}
 
-	if request.UserAgent != "" {
-		account.UserAgent = request.UserAgent
-	}
-
+	
 
 	if err := c.db.Save(&account).Error; err != nil {
 		logger.Error("Failed to update account: %v", err)

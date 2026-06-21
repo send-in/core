@@ -12,30 +12,31 @@ const (
 )
 
 type Account struct {
-	ID uuid.UUID `gorm:"<-:create;type:uuid;default:gen_random_uuid();primaryKey"`
-	Name string `gorm:"not null"`
+	ID    uuid.UUID `gorm:"<-:create;type:uuid;default:gen_random_uuid();primaryKey"`
 	Email string `gorm:"uniqueIndex"`
+	Name  string `gorm:"not null"`
 
-	Profile string
-	Picture string
 	Timezone string
+	Profile  string
+	Picture  string
 
-	Token string
 	UserAgent string
+	Session   string
+	Token 	  string
 	
-	Payments []Payment
-	Plan Plan `gorm:"default:'free'"`
+	Payments 	[]Payment
 	PlanCredits int `gorm:"default:0"`
+	Plan 		Plan `gorm:"default:'free'"`
 
-	CreditsRenewAt *time.Time
 	CreditsRemaining int `gorm:"default:0"`
+	CreditsRenewAt   *time.Time
 
-	LastDailyResetAt *time.Time
-	DailySyncsUsed int `gorm:"default:0"`
-	DailySchedulesUsed int `gorm:"default:0"`
+	DailySchedulesUsed  int `gorm:"default:0"`
+	LastDailyResetAt 	*time.Time
+	DailySyncsUsed 		int `gorm:"default:0"`
 
-	LifetimeSyncsUsed int `gorm:"default:0"`
 	LifetimeMessagesUsed int `gorm:"default:0"`
+	LifetimeSyncsUsed 	 int `gorm:"default:0"`
 
 	CreatedAt time.Time
 	UpdatedAt time.Time
