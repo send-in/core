@@ -75,7 +75,11 @@ definitions:
         type: string
       profile:
         type: string
+      session:
+        type: string
       timezone:
+        type: string
+      token:
         type: string
       userAgent:
         type: string
@@ -136,6 +140,8 @@ definitions:
       planCredits:
         type: integer
       profile:
+        type: string
+      session:
         type: string
       timezone:
         type: string

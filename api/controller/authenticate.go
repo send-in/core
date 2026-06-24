@@ -119,7 +119,6 @@ func (c *Controller) LinkedInCallback(context *gin.Context) {
 	}
 
 	session.Values["account"] = account.ID.String()
-	session.Options.MaxAge = 86400 * 30
 	if  err := session.Save(context.Request, context.Writer);  
 		err != nil {
 		context.JSON(
@@ -128,6 +127,17 @@ func (c *Controller) LinkedInCallback(context *gin.Context) {
 		)
 		return
 	}
+
+	http.SetCookie(
+		context.Writer, 
+		&http.Cookie{
+			Name:  "sendin_access",
+			Value: "true",
+			Path:  "/",
+			MaxAge:   86400 * 30,
+			HttpOnly: false,
+		},
+	)
 
 	context.Redirect(
 		http.StatusTemporaryRedirect,
@@ -152,6 +162,17 @@ func (c *Controller) Logout(context *gin.Context) {
 
 	session.Options.MaxAge = -1
 	_ = session.Save(context.Request, context.Writer)
+
+	http.SetCookie(
+		context.Writer,
+		&http.Cookie{
+			Name:     "sendin_access",
+			Value:    "",
+			Path:     "/",
+			MaxAge:   -1,
+			HttpOnly: false,
+		},
+	)
 
 	context.JSON(
 		http.StatusOK,

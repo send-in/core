@@ -1312,7 +1312,13 @@ const docTemplate = `{
                 "profile": {
                     "type": "string"
                 },
+                "session": {
+                    "type": "string"
+                },
                 "timezone": {
+                    "type": "string"
+                },
+                "token": {
                     "type": "string"
                 },
                 "userAgent": {
@@ -1404,6 +1410,9 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "profile": {
+                    "type": "string"
+                },
+                "session": {
                     "type": "string"
                 },
                 "timezone": {
