@@ -3,6 +3,7 @@ package controller
 import (
 	"errors"
 	"net/http"
+	"strconv"
 
 	model "core/internal/model"
 	logger "core/pkg/log"
@@ -11,7 +12,6 @@ import (
 	"github.com/markbates/goth/gothic"
 	"gorm.io/gorm"
 )
-
 
 // LinkedInLogin godoc
 //
@@ -83,11 +83,13 @@ func (c *Controller) LinkedInCallback(context *gin.Context) {
 			DailySyncsUsed: 0,
 			LifetimeSyncsUsed: 0,
 			LifetimeMessagesUsed: 0,
+			Onboarding: false,
 		}
 
 		if 	err := c.db.
 			Create(&account).
-			Error; err != nil {
+			Error; 
+			err != nil {
 			logger.Error("Failed to create account: %v", err)
 			context.JSON(
 				http.StatusInternalServerError,
@@ -127,6 +129,16 @@ func (c *Controller) LinkedInCallback(context *gin.Context) {
 		)
 		return
 	}
+
+	http.SetCookie(
+		context.Writer,
+		&http.Cookie{
+			Name:     "sendin_onboarded",
+			Value:    strconv.FormatBool(account.Onboarding),
+			Path:     "/",
+			HttpOnly: false,
+		},
+	)
 
 	http.SetCookie(
 		context.Writer, 

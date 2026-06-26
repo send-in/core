@@ -25,6 +25,10 @@ type Connection struct {
 
 type AccountConnection struct {
     AccountID    uuid.UUID `gorm:"primaryKey"`
-    ConnectionID uuid.UUID `gorm:"primaryKey"`
+	Account      *Account  `gorm:"foreignKey:AccountID"`
+
+    ConnectionID uuid.UUID   `gorm:"primaryKey"`
+	Connection   *Connection `gorm:"foreignKey:ConnectionID"`
+
     CreatedAt time.Time
 }

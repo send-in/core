@@ -7,7 +7,9 @@ import (
 
 type Template struct {
 	ID uuid.UUID `gorm:"<-:create;type:uuid;default:gen_random_uuid();primaryKey"`
+
 	AccountID *uuid.UUID `gorm:"not null"`
+	Account   *Account   `gorm:"foreignKey:AccountID"`
 	
 	Value string `gorm:"type:text"`
 	Label string

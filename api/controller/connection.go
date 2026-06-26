@@ -7,6 +7,7 @@ import (
 	logger "core/pkg/log"
 	openai "core/pkg/openai"
 	parser "core/pkg/parser"
+	timezone "core/pkg/timezone"
 
 	"fmt"
 	"io"
@@ -232,22 +233,12 @@ func (c *Controller) EnrichConnections(context *gin.Context) {
 
 	if err := c.db.
 		Model(&model.Connection{}).
-		Joins(
-			"JOIN account_connections ac ON ac.connection_id = connections.id",
-		).
-		Where(
-			"ac.account_id = ?",
-			account.ID,
-		).
-		Where(
-			"connections.public_id IN ?",
-			request.IDs,
-		).
-		Where(
-			"connections.timezone IS NULL OR connections.country = ''",
-		).
-		Find(&connections).
-		Error; err != nil {
+		Joins("JOIN account_connections ac ON ac.connection_id = connections.id").
+		Where("ac.account_id = ?", account.ID).
+		Where("connections.public_id IN ?", request.IDs).
+		Where("connections.timezone IS NULL OR connections.country = ''").
+		Find(&connections).Error; 
+		err != nil {
 
 		context.JSON(
 			http.StatusInternalServerError,
@@ -330,18 +321,29 @@ func (c *Controller) EnrichConnections(context *gin.Context) {
 			profile.Location,
 		)
 
-		timezone, err := openai.Client.InferTimezone(profile.Location)
+		result, err := timezone.InferTimezone(profile.Location)
 		if err != nil {
 			logger.Error(
 				"Failed inferring timezone for %s: %v",
 				connection.PublicID,
 				err,
 			)
-
 			continue
 		}
 
-		if timezone.Timezone == "" {
+		if result == nil {
+			result, err = openai.Client.InferTimezone(profile.Location)
+			if err != nil {
+				logger.Error(
+					"Failed inferring timezone for %s: %v",
+					connection.PublicID,
+					err,
+				)
+				continue
+			}
+		}
+
+		if result == nil || result.Timezone == "" {
 			continue
 		}
 
@@ -353,8 +355,8 @@ func (c *Controller) EnrichConnections(context *gin.Context) {
 			).
 			Updates(
 				map[string]any{
-					"country": timezone.Country,
-					"timezone": timezone.Timezone,
+					"country": result.Country,
+					"timezone": result.Timezone,
 				},
 			).
 			Error; err != nil {
@@ -371,8 +373,8 @@ func (c *Controller) EnrichConnections(context *gin.Context) {
 		logger.Success(
 			"Enriched %s => %s (%s)",
 			connection.PublicID,
-			timezone.Timezone,
-			timezone.Country,
+			result.Timezone,
+			result.Country,
 		)
 	}
 

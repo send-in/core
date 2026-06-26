@@ -1,6 +1,8 @@
 package openai
 
 import (
+	timezone "core/pkg/timezone"
+
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,12 +10,6 @@ import (
 	"github.com/openai/openai-go/v3"
 	"github.com/openai/openai-go/v3/responses"
 )
-
-type TimezoneResult struct {
-	Location string `json:"location"`
-	Country  string `json:"country"`
-	Timezone string `json:"timezone"`
-}
 
 const prompt = `
 You infer locations and timezones.
@@ -32,11 +28,11 @@ Rules:
 - never explain your reasoning.
 `
 
-func (c *ClientStruct) InferTimezone(location string) (*TimezoneResult, error) {
+func (c *ClientStruct) InferTimezone(location string) (*timezone.TimezoneResult, error) {
 	response, err := c.Client.Responses.New(
 		context.Background(),
 		responses.ResponseNewParams{
-			Model: openai.ChatModelGPT5Mini,
+			Model: openai.ChatModelGPT4_1Nano,
 			Input: responses.ResponseNewParamsInputUnion{
 				OfString: openai.String(
 					prompt + "\n\nLocation:\n" + location,
@@ -50,7 +46,7 @@ func (c *ClientStruct) InferTimezone(location string) (*TimezoneResult, error) {
 	}
 
 	content := response.OutputText()
-	var result TimezoneResult
+	var result timezone.TimezoneResult
 
 	if 	err := json.Unmarshal([]byte(content), &result); 
 		err != nil {

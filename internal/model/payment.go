@@ -15,11 +15,11 @@ const (
 
 type Payment struct {
 	ID 			  uuid.UUID `gorm:"<-:create;type:uuid;default:gen_random_uuid();primaryKey"`
+	Status		  PaymentStatus `gorm:"default:'pending'"`
 
 	AccountID 	  uuid.UUID `gorm:"not null;index"`
 	Account   	  Account
-	Status		  PaymentStatus `gorm:"default:'pending'"`
-
+	
 	Plan      	  string
 	PlanCredits   int
 	Amount        int64

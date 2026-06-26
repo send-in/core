@@ -16,10 +16,6 @@ type EnrichmentRequest struct {
 	Token      string
 	Agent      string
 	Profile    string
-	
-	// TODO(v1.1):
-	// Add Account.JSession migration and use it
-	// for csrf-token + JSESSIONID cookie.
 	JSession   string
 	AccountID  uuid.UUID 
 }

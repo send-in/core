@@ -23,6 +23,8 @@ type Account struct {
 	UserAgent string
 	Session   string
 	Token 	  string
+
+	Onboarding bool
 	
 	Payments 	[]Payment
 	PlanCredits int `gorm:"default:0"`

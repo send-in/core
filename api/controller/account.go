@@ -20,6 +20,7 @@ type UpdateAccountRequest struct {
 	UserAgent string `json:"userAgent"`
 	Token 	  string `json:"token"`
 	Session   string `json:"session"`
+	Onboarding bool `json:"onboarding"`
 }
 
 // GetAccount godoc
@@ -106,7 +107,10 @@ func (c *Controller) UpdateAccount(context *gin.Context) {
 		account.Timezone = request.Timezone
 	}
 
-	
+	if request.Onboarding != false {
+		account.Onboarding = true
+	}
+
 
 	if err := c.db.Save(&account).Error; err != nil {
 		logger.Error("Failed to update account: %v", err)

@@ -80,9 +80,6 @@ func Config(db *gorm.DB) http.Handler {
 		protected.GET("/account", controllers.GetAccount)
 		protected.PUT("/account", controllers.UpdateAccount)
 		protected.DELETE("/account", controllers.DeleteAccount)
-		
-		// Timezone
-		protected.POST("/timezone", controllers.InferTimezone)
 
 		// Connections
 		protected.GET("/connections", controllers.GetConnections)

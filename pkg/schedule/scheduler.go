@@ -21,6 +21,7 @@ func Start(db *gorm.DB) {
 		logger.Info("⏳ Tick")
 
 		err := db.
+			Preload("Account").
 			Where("is_sent = ?", false).
 			Where("schedule_time <= ?", time.Now()).
 			Find(&messages).

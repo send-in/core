@@ -58,11 +58,7 @@ func main() {
 	payment.Configure(&cfg.Razorpay)
 
 	logger.Info("🤖 OpenAI setup")
-	openai.Configure(
-		&openai.Config{
-			APIKey: cfg.OpenAI.SecretKey,
-		},
-	)
+	openai.Configure(&cfg.OpenAI)
 
 	logger.Info("⏰ Scheduler started")
 	go scheduler.Start(gormDB)
