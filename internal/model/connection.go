@@ -6,18 +6,21 @@ import (
 )
 
 type Connection struct {
-	ID uuid.UUID `gorm:"<-:create;type:uuid;default:gen_random_uuid();primaryKey"`
-	PublicID string `gorm:"uniqueIndex"`
+	ID 		  uuid.UUID `gorm:"<-:create;type:uuid;default:gen_random_uuid();primaryKey"`
+	PublicID  string `gorm:"uniqueIndex"`
 
 	FirstName string
-	LastName string
+	LastName  string
 
-	Bio string
+	Bio		string
 	Picture string
 
-	Company string
-	Country string
+	Company   string
+	Country   string
 	Timezone *string
+
+	ProfileURN string
+	Recipient  string
 
 	CreatedAt time.Time
 	UpdatedAt time.Time

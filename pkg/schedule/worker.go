@@ -5,24 +5,23 @@ import (
 	"encoding/json"
 	"net/http"
 
-	model "core/internal/model"
 	logger "core/pkg/log"
 )
 
-func Worker(jobs <-chan model.Message) {
+func Worker(jobs <-chan MessageRequest) {
 	for message := range jobs {
-		bypass := true
+		bypass := false
 
 		logger.Info(
-			"📤 Dispatching scheduled message %s",
-			message.ID,
+			"📤 Dispatching scheduled message to %s",
+			message.Receiver,
 		)
 
 		body, err := json.Marshal(message)
 		if err != nil {
 			logger.Error(
-				"Failed to marshal message %s: %v",
-				message.ID,
+				"Failed to marshal message to %s: %v",
+				message.Receiver,
 				err,
 			)
 			return
@@ -30,22 +29,22 @@ func Worker(jobs <-chan model.Message) {
 
 		if(bypass){
 			logger.Success(
-				"✅ Scheduled message %s dispatched",
-				message.ID,
+				"✅ Scheduled message to %s dispatched",
+				message.Receiver,
 			)
 			return
 		}
 
 		response, err := http.Post(
-			"http://localhost:8001/jobs",
+			"http://localhost:8001/api/v1/jobs",
 			"application/json",
 			bytes.NewBuffer(body),
 		)
 
 		if err != nil {
 			logger.Error(
-				"❌ Failed to dispatch message %s: %v",
-				message.ID,
+				"❌ Failed to dispatch message to %s: %v",
+				message.Receiver,
 				err,
 			)
 			return
@@ -54,16 +53,16 @@ func Worker(jobs <-chan model.Message) {
 		defer response.Body.Close()
 		if response.StatusCode >= 300 {
 			logger.Error(
-				"🚫 Consumer rejected message %s with status %d",
-				message.ID,
+				"🚫 Consumer rejected message to %s with status %d",
+				message.Receiver,
 				response.StatusCode,
 			)
 			return
 		}
 
 		logger.Success(
-			"✅ Scheduled message %s dispatched",
-			message.ID,
+			"✅ Scheduled message to %s dispatched",
+			message.Receiver,
 		)
 	}
 }

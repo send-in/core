@@ -29,7 +29,6 @@ func LinkedinService(db *gorm.DB) {
 	go func() {
 		for job := range EnrichmentJobs {
 			logger.Info("🔎 Enriching %s", job.Profile)
-
 			start := 0
 
 			for {
@@ -41,7 +40,9 @@ func LinkedinService(db *gorm.DB) {
 					), nil,
 				)
 				
-				if err != nil { break }
+				if err != nil { 
+					break 
+				}
 
 				request.Header = http.Header{
 					"User-Agent": []string{
@@ -88,13 +89,15 @@ func LinkedinService(db *gorm.DB) {
 									connection.PublicID,
 								).
 								Assign(model.Connection{
-									FirstName: connection.FirstName,
-									LastName:  connection.LastName,
-									Bio:       connection.Bio,
-									Picture:   connection.Picture,
-									Company:   connection.Company,
-									Country:   connection.Country,
-									Timezone:  connection.Timezone,
+									Bio:        connection.Bio,
+									Picture:    connection.Picture,
+									Company:    connection.Company,
+									Country:    connection.Country,
+									Timezone:   connection.Timezone,
+									LastName:   connection.LastName,
+									FirstName:  connection.FirstName,
+									Recipient:  connection.Recipient,
+									ProfileURN: connection.ProfileURN,
 								}).
 								FirstOrCreate(
 									&connection,

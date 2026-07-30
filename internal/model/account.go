@@ -30,11 +30,11 @@ type Account struct {
 	PlanCredits int `gorm:"default:0"`
 	Plan 		Plan `gorm:"default:'free'"`
 
-	CreditsRemaining int `gorm:"default:0"`
 	CreditsRenewAt   *time.Time
+	CreditsRemaining int `gorm:"default:0"`
 
-	DailySchedulesUsed  int `gorm:"default:0"`
 	LastDailyResetAt 	*time.Time
+	DailySchedulesUsed  int `gorm:"default:0"`
 	DailySyncsUsed 		int `gorm:"default:0"`
 
 	LifetimeMessagesUsed int `gorm:"default:0"`

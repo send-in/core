@@ -149,7 +149,6 @@ func (c *Controller) GetMessage(context *gin.Context) {
 	id := context.Param("id")
 
 	var message model.Message
-
 	if err := c.db.
 		Preload("Template").
 		Where(
@@ -220,15 +219,15 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 		return
 	}
 
-	if account.CreditsRemaining < len(requests) {
-		context.JSON(
-			http.StatusForbidden,
-			gin.H{
-				"error": "Not enough credits",
-			},
-		)
-		return
-	}
+	// if !account.CanSchedule() {
+	// 	context.JSON(
+	// 		http.StatusForbidden,
+	// 		gin.H{
+	// 			"error": "Message limit reached",
+	// 		},
+	// 	)
+	// 	return
+	// }
 
 	messages := make(
 		[]model.Message,
@@ -252,6 +251,28 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 			return
 		}
 
+		var connection model.Connection
+		if err := c.db.
+			Where("public_id = ?", request.Profile).
+			First(&connection).Error; err != nil {
+
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				context.JSON(
+					http.StatusBadRequest,
+					gin.H{
+						"error": "Connection not found. Please Resync.",
+					},
+				)
+				return
+			}
+
+			context.JSON(
+				http.StatusInternalServerError,
+				gin.H{"error": err.Error()},
+			)
+			return
+		}
+
 		message := model.Message{
 			Name:         request.Name,
 			IsSent:       false,
@@ -262,6 +283,8 @@ func (c *Controller) CreateMessage(context *gin.Context) {
 			Timezone:     request.Timezone,
 			AccountID:    &account.ID,
 			ScheduleTime: scheduleTime,
+			ProfileURN:   connection.ProfileURN,
+			Recipient:    connection.Recipient,
 		}
 
 		if request.TemplateID != nil {

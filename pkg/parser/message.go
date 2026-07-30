@@ -13,6 +13,23 @@ const (
 	formatUnderline     = 8
 )
 
+type Format int
+func (f *Format) UnmarshalJSON(data []byte) error {
+	if (string(data) == `""` || string(data) == "null") {
+		*f = 0
+		return nil
+	}
+
+	var value int
+	if  err := json.Unmarshal(data, &value); 
+		err != nil {
+		return err
+	}
+
+	*f = Format(value)
+	return nil
+}
+
 type lexicalDocument struct {
 	Root lexicalNode `json:"root"`
 }
@@ -20,31 +37,35 @@ type lexicalDocument struct {
 type lexicalNode struct {
 	Type     string        `json:"type"`
 	Text     string        `json:"text"`
-	Format   int           `json:"format"`
+	Format   Format        `json:"format"`
 	ListType string        `json:"listType"`
 	Children []lexicalNode `json:"children"`
 }
 
 func ParseLexical(value string) (string, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return "", nil
+	}
+
+	if value[0] != '{' {
+		return value, nil
+	}
+
 	var document lexicalDocument
-	if  err := json.Unmarshal(
-			[]byte(value),
-			&document,
-		); 
+	if  err := json.Unmarshal([]byte(value), &document); 
 		err != nil {
 		return "", err
 	}
 
 	var blocks []string
-
 	for _, child := range document.Root.Children {
-		block := renderBlock(child)
-		blocks = append(blocks, block)
+		if block := renderBlock(child); block != "" {
+			blocks = append(blocks, block)
+		}
 	}
 
-	return strings.TrimSpace(
-		strings.Join(blocks, "\n"),
-	), nil
+	return strings.TrimSpace(strings.Join(blocks, "\n")), nil
 }
 
 func renderBlock(node lexicalNode) string {
@@ -79,7 +100,7 @@ func renderInline(node lexicalNode) string {
 		case "text":
 			return applyFormatting(
 				node.Text,
-				node.Format,
+				int(node.Format),
 			)
 		default:
 			var builder strings.Builder

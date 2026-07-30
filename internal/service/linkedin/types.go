@@ -2,6 +2,7 @@ package service
 
 import (
 	model "core/internal/model"
+	"strings"
 )
 
 type ConnectionsResponse struct {
@@ -25,7 +26,12 @@ type MiniProfile struct {
 	LastName         string  `json:"lastName"`
 	Occupation       string  `json:"occupation"`
 	PublicIdentifier string  `json:"publicIdentifier"`
-	Picture          Picture `json:"picture"`
+
+	DashEntityURN string `json:"dashEntityUrn"`
+	EntityURN     string `json:"entityUrn"`
+	ObjectURN     string `json:"objectUrn"`
+
+	Picture Picture `json:"picture"`
 }
 
 type Picture struct {
@@ -43,12 +49,10 @@ type Artifact struct {
 	FileIdentifyingURLPathSegment string `json:"fileIdentifyingUrlPathSegment"`
 }
 
-func LinkedinConnection(
-	element ConnectionElement,
-) model.Connection {
+func LinkedinConnection(element ConnectionElement) model.Connection {
 	profile := element.MiniProfile
-	var picture string
 
+	var picture string
 	if len(profile.Picture.VectorImage.Artifacts) > 0 {
 		artifact := profile.Picture.
 			VectorImage.
@@ -59,11 +63,14 @@ func LinkedinConnection(
 			artifact.FileIdentifyingURLPathSegment
 	}
 
+	parts := strings.Split(profile.DashEntityURN, ":")
 	return model.Connection{
-		PublicID:  profile.PublicIdentifier,
-		FirstName: profile.FirstName,
-		LastName:  profile.LastName,
-		Bio:       profile.Occupation,
-		Picture:   picture,
+		PublicID:   profile.PublicIdentifier,
+		FirstName:  profile.FirstName,
+		LastName:   profile.LastName,
+		Bio:        profile.Occupation,
+		Picture:    picture,
+		ProfileURN: profile.DashEntityURN,
+		Recipient:  parts[len(parts)-1],
 	}
 }
